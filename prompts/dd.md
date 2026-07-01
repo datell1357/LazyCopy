@@ -2,15 +2,15 @@
 
 Use the latest clipboard content as context for the user's message.
 
-Run LazyCopy through the local CLI:
+Run LazyCopy through the short local CLI:
 
 ```sh
-lazycopy dd --agent codex --prompt "<user message>"
+dd "<user message>"
 ```
 
 Rules:
 
-- Treat all text after `/dd` as the user message.
+- Treat all text after `/dd`, `/ㅇㅇ`, `$dd`, `$ㅇㅇ`, `dd`, or `ㅇㅇ` as the user message.
 - Do not ask the user for extra options.
 - Use Codex by default.
 - Use Claude only when the user explicitly asks for Claude Code.

@@ -13,15 +13,19 @@ const platformSystem = require("./platform");
 
 const DEFAULT_HOTKEY = "control+space";
 const VALID_AGENTS = new Set(["codex", "claude"]);
-const DD_COMMAND_ALIASES = new Set(["dd", "ㅇㅇ"]);
+const DD_COMMAND_ALIASES = new Set(["dd", "ㅇㅇ", "/dd", "$dd", "/ㅇㅇ", "$ㅇㅇ"]);
 
 const usage = `Usage:
+  dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
+  ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
+  /dd <message>      Codex Desktop or Codex CLI message input.
+  $dd <message>      Codex skill invocation.
+  /ㅇㅇ <message>     Codex Desktop or Codex CLI message input.
+  $ㅇㅇ <message>     Codex skill invocation.
   lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
   lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]
   lazycopy appshot hotkey run [--key control+space] [--app Codex]
   lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]
-  lazycopy dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
-  lazycopy ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
 
 Commands:
   appshot    Capture the current window and hand it to Codex Desktop.

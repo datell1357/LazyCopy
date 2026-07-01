@@ -4,7 +4,9 @@
   "private": true,
   "description": "Standalone LazyCopy skill and CLI for local capture artifacts.",
   "bin": {
-    "lazycopy": "./bin/lazycopy.js"
+    "lazycopy": "./bin/lazycopy.js",
+    "dd": "./bin/dd.js",
+    "ㅇㅇ": "./bin/ㅇㅇ.js"
   },
   "scripts": {
     "install-user": "node scripts/install-user.js",

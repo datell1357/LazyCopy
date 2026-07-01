@@ -3,7 +3,7 @@
 LazyCopy is a Windows-first Codex skill and local CLI for two quick actions:
 
 - Press `Ctrl+Space` to capture the active window and paste it into Codex Desktop.
-- Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...` to send the latest clipboard content to Codex CLI or Claude Code.
+- Type `/dd ...`, `$dd ...`, `/ㅇㅇ ...`, `$ㅇㅇ ...`, `dd ...`, or `ㅇㅇ ...` to send the latest clipboard content to Codex or Claude Code.
 
 GitHub URL:
 
@@ -30,10 +30,11 @@ if (Test-Path "$dir\.git") {
 npm --prefix $dir run install-user
 ```
 
-The installer does three things:
+The installer does four things:
 
-- Registers this skill as `$dd`.
-- Installs `/dd` as a Codex prompt.
+- Registers this skill as `$dd` and `$ㅇㅇ`.
+- Installs `/dd` and `/ㅇㅇ` as Codex prompts.
+- Installs `dd` and `ㅇㅇ` as terminal commands.
 - Installs and starts the Windows `Ctrl+Space` AppShot hotkey listener.
 
 No separate AppShot skill call is required.
@@ -44,8 +45,8 @@ Open Codex Desktop and paste this message:
 
 ```text
 Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows.
-Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify lazycopy --help and ~/.codex/prompts/dd.md.
-After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd and $dd.
+Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md.
+After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.
 ```
 
 Start a fresh Codex thread after install.
@@ -55,7 +56,7 @@ Start a fresh Codex thread after install.
 Run:
 
 ```powershell
-codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify lazycopy --help and ~/.codex/prompts/dd.md. After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd and $dd.'
+codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md. After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.'
 ```
 
 ## Update
@@ -87,11 +88,13 @@ Expected behavior:
 
 ### dd
 
-Use any of these in Codex:
+Use any of these in Codex Desktop or Codex CLI message input:
 
 ```text
 /dd 이 클립보드 내용을 보고 이어서 작업해줘
 $dd 이 클립보드 내용을 보고 이어서 작업해줘
+/ㅇㅇ 이 클립보드 내용을 보고 이어서 작업해줘
+$ㅇㅇ 이 클립보드 내용을 보고 이어서 작업해줘
 dd 이 클립보드 내용을 보고 이어서 작업해줘
 ㅇㅇ 이 클립보드 내용을 보고 이어서 작업해줘
 ```
@@ -105,24 +108,24 @@ Expected behavior:
 
 ## Direct CLI Usage
 
-The simple forms are:
+In a Windows terminal, use the short commands directly:
 
 ```powershell
-lazycopy dd "이 클립보드 내용을 보고 이어서 작업해줘"
-lazycopy ㅇㅇ "이 클립보드 내용을 보고 이어서 작업해줘"
+dd "이 클립보드 내용을 보고 이어서 작업해줘"
+ㅇㅇ "이 클립보드 내용을 보고 이어서 작업해줘"
 ```
 
 Dry-run without launching an agent:
 
 ```powershell
 Set-Clipboard "LazyCopy dd smoke test"
-lazycopy dd "Use this context" --dry-run --prefer text --json
+dd "Use this context" --dry-run --prefer text --json
 ```
 
 Claude Code only when explicitly wanted:
 
 ```powershell
-lazycopy dd "Use this context in Claude Code" --agent claude
+dd "Use this context in Claude Code" --agent claude
 ```
 
 Normal AppShot use is always `Ctrl+Space`; the commands below are only for reinstalling or diagnosing the hotkey.
@@ -130,28 +133,29 @@ Normal AppShot use is always `Ctrl+Space`; the commands below are only for reins
 Reinstall the hotkey:
 
 ```powershell
-lazycopy appshot hotkey install --key control+space --app Codex
+dd appshot hotkey install --key control+space --app Codex
 ```
 
 Run the hotkey listener in the foreground:
 
 ```powershell
-lazycopy appshot hotkey run --key control+space --app Codex
+dd appshot hotkey run --key control+space --app Codex
 ```
 
 ## Smoke Test
 
 ```powershell
-lazycopy --help
+dd --help
 npm --prefix "$HOME\.codex\skills\dd" test
 Test-Path "$HOME\.codex\prompts\dd.md"
+Test-Path "$HOME\.codex\prompts\ㅇㅇ.md"
 ```
 
 Then verify dd privacy behavior:
 
 ```powershell
 Set-Clipboard "LazyCopy private clipboard smoke test"
-lazycopy dd "Use this context" --dry-run --prefer text --json
+dd "Use this context" --dry-run --prefer text --json
 ```
 
 Expected dd dry-run behavior:

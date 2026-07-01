@@ -6,6 +6,8 @@ Trigger this skill for:
 
 - `$dd <message>`
 - `/dd <message>`
+- `$ㅇㅇ <message>`
+- `/ㅇㅇ <message>`
 - `dd <message>`
 - `ㅇㅇ <message>`
 - Korean natural language asking to use the current clipboard as context
@@ -17,13 +19,13 @@ Do not require the user to mention LazyCopy. Do not ask the user for CLI flags u
 Use Codex by default:
 
 ```sh
-lazycopy dd --agent codex --prompt "<user message>"
+dd "<user message>"
 ```
 
 Use Claude Code only when the user explicitly asks for Claude:
 
 ```sh
-lazycopy dd --agent claude --prompt "<user message>"
+dd "<user message>" --agent claude
 ```
 
 If the user gives no message, use:

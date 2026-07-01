@@ -10,8 +10,10 @@ const codexRoot = path.join(os.homedir(), ".codex");
 const skillsDir = path.join(codexRoot, "skills");
 const promptsDir = path.join(codexRoot, "prompts");
 const ddSkillDir = path.join(skillsDir, "dd");
+const shorthandSkillDir = path.join(skillsDir, "ㅇㅇ");
 const promptSource = path.join(repoRoot, "prompts", "dd.md");
 const promptTarget = path.join(promptsDir, "dd.md");
+const shorthandPromptTarget = path.join(promptsDir, "ㅇㅇ.md");
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -24,20 +26,22 @@ function run(command, args, options = {}) {
   }
 }
 
-function ensureSkillAlias() {
+function ensureSkillAlias(targetDir) {
   fs.mkdirSync(skillsDir, { recursive: true });
-  if (fs.existsSync(ddSkillDir)) {
+  if (fs.existsSync(targetDir)) {
     return;
   }
-  fs.symlinkSync(repoRoot, ddSkillDir, process.platform === "win32" ? "junction" : "dir");
+  fs.symlinkSync(repoRoot, targetDir, process.platform === "win32" ? "junction" : "dir");
 }
 
 function installPrompt() {
   fs.mkdirSync(promptsDir, { recursive: true });
   fs.copyFileSync(promptSource, promptTarget);
+  fs.copyFileSync(promptSource, shorthandPromptTarget);
 }
 
-ensureSkillAlias();
+ensureSkillAlias(ddSkillDir);
+ensureSkillAlias(shorthandSkillDir);
 installPrompt();
 run("npm", ["link"]);
 
@@ -52,7 +56,7 @@ if (process.platform === "win32") {
     "--app",
     "Codex",
   ]);
-  console.log("LazyCopy installed as $dd, /dd, and Ctrl+Space AppShot.");
+  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, and Ctrl+Space AppShot.");
 } else {
-  console.log("LazyCopy installed as $dd and /dd. Ctrl+Space AppShot auto-install is Windows-only.");
+  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ. Ctrl+Space AppShot auto-install is Windows-only.");
 }

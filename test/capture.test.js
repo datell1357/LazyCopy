@@ -231,6 +231,34 @@ test("Korean shorthand ㅇㅇ maps to dd", async (t) => {
   assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
 });
 
+test("Codex dd aliases map to the same default dd behavior", async (t) => {
+  for (const alias of ["/dd", "$dd", "/ㅇㅇ", "$ㅇㅇ"]) {
+    const outputRoot = await makeTempDir(t);
+    const stdout = captureWrites();
+
+    const exitCode = await runCli(
+      [alias, "Use this clipboard from Codex", "--dry-run", "--prefer", "text", "--output-root", outputRoot],
+      {
+        stdout: stdout.stream,
+        stderr: { write: () => {} },
+        system: fakeSystem(t),
+      },
+    );
+
+    assert.equal(exitCode, 0);
+    const payload = stdout.json();
+    assert.equal(payload.dd.agent, "codex");
+    assert.equal(payload.dd.command, "codex");
+    assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
+  }
+});
+
+test("package exposes short terminal commands without lazycopy prefix", async () => {
+  const packageJson = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
+  assert.equal(packageJson.bin.dd, "./bin/dd.js");
+  assert.equal(packageJson.bin["ㅇㅇ"], "./bin/ㅇㅇ.js");
+});
+
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
