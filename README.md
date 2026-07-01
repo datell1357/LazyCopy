@@ -15,6 +15,10 @@ Windows-first AppShot + `dd` for Codex: press one hotkey to send the active wind
   <a href="https://github.com/datell1357/LazyCopy/stargazers"><img src="https://img.shields.io/github/stars/datell1357/LazyCopy?color=F0B72F" alt="GitHub stars"></a>
 </p>
 
+<p>
+  <img src="assets/LazyCopy.png" alt="LazyCopy AppShot preview" width="860">
+</p>
+
 <sub><a href="#install">Install</a> · <a href="#start-here">Start here</a> · <a href="#pick-by-the-moment">Pick by the moment</a> · <a href="#trust--setup">Trust & setup</a> · <a href="#commands">Commands</a></sub>
 
 </div>
