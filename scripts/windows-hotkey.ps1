@@ -87,11 +87,14 @@ public static class LazyCopyHotkey {
   public const int VK_LSHIFT = 0xA0;
   public const int VK_RSHIFT = 0xA1;
   public const uint WM_KEYDOWN = 0x0100;
+  public const uint WM_KEYUP = 0x0101;
   public const uint WM_SYSKEYDOWN = 0x0104;
+  public const uint WM_SYSKEYUP = 0x0105;
   public const uint WM_LAZYCOPY_SHIFT_SPACE = 0x8001;
 
   private static IntPtr hookHandle = IntPtr.Zero;
   private static int targetThreadId = 0;
+  private static bool shiftSpaceArmed = true;
   private static LowLevelKeyboardProc hookCallback = HookCallback;
 
   [DllImport("user32.dll", SetLastError = true)]
@@ -129,14 +132,22 @@ public static class LazyCopyHotkey {
   }
 
   private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
-    if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)) {
+    if (nCode >= 0) {
       KBDLLHOOKSTRUCT key = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-      bool shiftDown = IsKeyDown(VK_SHIFT) || IsKeyDown(VK_LSHIFT) || IsKeyDown(VK_RSHIFT);
-      if (key.vkCode == VK_SPACE && shiftDown) {
-        if (targetThreadId != 0) {
-          PostThreadMessage(targetThreadId, WM_LAZYCOPY_SHIFT_SPACE, IntPtr.Zero, IntPtr.Zero);
+      bool isSpace = key.vkCode == VK_SPACE;
+      bool isKeyDown = wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN;
+      bool isKeyUp = wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP;
+      if (isSpace && isKeyUp) {
+        shiftSpaceArmed = true;
+      } else if (isSpace && isKeyDown) {
+        bool shiftDown = IsKeyDown(VK_SHIFT) || IsKeyDown(VK_LSHIFT) || IsKeyDown(VK_RSHIFT);
+        if (shiftDown) {
+          if (shiftSpaceArmed && targetThreadId != 0) {
+            PostThreadMessage(targetThreadId, WM_LAZYCOPY_SHIFT_SPACE, IntPtr.Zero, IntPtr.Zero);
+          }
+          shiftSpaceArmed = false;
+          return (IntPtr)1;
         }
-        return (IntPtr)1;
       }
     }
     return CallNextHookEx(hookHandle, nCode, wParam, lParam);

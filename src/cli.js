@@ -519,7 +519,7 @@ async function runDesktop(options, system) {
 function hotkeyCommand(system, options) {
   const appName = options.appName ?? "Codex";
   if (system.platform === "win32") {
-    return [
+    const command = [
       powershellCommand(system),
       "-NoProfile",
       "-ExecutionPolicy",
@@ -532,6 +532,10 @@ function hotkeyCommand(system, options) {
       "-AppName",
       appName,
     ];
+    if (options.logPath) {
+      command.push("-LogPath", options.logPath);
+    }
+    return command;
   }
   return [
     process.execPath,
