@@ -49,6 +49,17 @@ async function ensureParent(filePath) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
 }
 
+async function appendHotkeyLog(logPath, message) {
+  if (!logPath) {
+    return;
+  }
+  try {
+    await ensureParent(logPath);
+    await fs.appendFile(logPath, `${new Date().toISOString()} ${message}\r\n`, "utf8");
+  } catch {
+  }
+}
+
 async function captureScreenToFile(targetPath, options = {}) {
   requireWindows(options.platform);
   await ensureParent(targetPath);
@@ -161,14 +172,21 @@ async function installHotkey(command, options = {}) {
     return { startupPath, started: false, logPath };
   }
 
-  const child = spawn(command[0], command.slice(1), {
-    detached: true,
-    stdio: "ignore",
-    shell: false,
-    windowsHide: true,
+  const pid = await new Promise((resolve, reject) => {
+    const child = spawn(command[0], command.slice(1), {
+      detached: true,
+      stdio: "ignore",
+      shell: false,
+      windowsHide: true,
+    });
+    child.once("spawn", () => {
+      child.unref();
+      resolve(child.pid);
+    });
+    child.once("error", reject);
   });
-  child.unref();
-  return { startupPath, started: true, logPath };
+  await appendHotkeyLog(logPath, `installer-spawned pid=${pid}`);
+  return { startupPath, started: true, pid, logPath };
 }
 
 async function uninstallHotkey(options = {}) {

@@ -186,6 +186,7 @@ if (isWindows()) {
       "shift+space",
       "--app",
       "Codex",
+      "--json",
     ];
     if (process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY_START === "1") {
       hotkeyInstallArgs.push("--no-start");
