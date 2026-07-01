@@ -168,7 +168,7 @@ async function installHotkey(command, options = {}) {
   const commandLine = options.startupCommand ?? hiddenHotkeyStartupCommand(command, options);
   await fs.writeFile(
     startupPath,
-    `@echo off\r\nrem LazyCopy AppShot hotkey log: ${logPath}\r\n${commandLine}\r\n`,
+    `@echo off\r\nrem LazyCopy AppShot watcher log: ${logPath}\r\n${commandLine}\r\n`,
   );
 
   const child = spawn(command[0], command.slice(1), {

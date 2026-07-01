@@ -563,6 +563,27 @@ function windowsHotkeyRunArgs(system, options) {
   return args;
 }
 
+function windowsWatcherRunArgs(system, options) {
+  const listenerCommand = [powershellCommand(system), ...windowsHotkeyRunArgs(system, options)];
+  const args = [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-STA",
+    "-File",
+    path.join(system.repoRoot(), "scripts", "windows-appshot-watch.ps1"),
+    "-Key",
+    options.key,
+    "-AppName",
+    options.appName ?? "Codex",
+  ];
+  if (options.logPath) {
+    args.push("-LogPath", options.logPath);
+  }
+  args.push("-PollSeconds", "2", ...listenerCommand);
+  return args;
+}
+
 function powershellCommand(system) {
   if (typeof system.powershellBin === "function") {
     return system.powershellBin();
@@ -636,7 +657,7 @@ async function runHotkey(options, system, io, action) {
   if (action === "install") {
     if (system.platform === "win32") {
       const powershell = powershellCommand(system);
-      const command = [powershell, ...windowsHotkeyRunArgs(system, hotkeyOptions)];
+      const command = [powershell, ...windowsWatcherRunArgs(system, hotkeyOptions)];
       const startupCommand = hiddenHotkeyStartupCommand(command, {
         powershell,
       });
@@ -648,6 +669,7 @@ async function runHotkey(options, system, io, action) {
           logPath: hotkeyOptions.logPath,
           key: hotkeyOptions.key,
           appName: hotkeyOptions.appName ?? "Codex",
+          mode: "watcher",
         };
       }
       const installed = await system.installHotkey(command, {
@@ -660,6 +682,7 @@ async function runHotkey(options, system, io, action) {
         command,
         key: hotkeyOptions.key,
         appName: hotkeyOptions.appName ?? "Codex",
+        mode: "watcher",
       };
     }
     const plist = launchAgentPlist(system, hotkeyOptions);

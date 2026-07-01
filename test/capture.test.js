@@ -9,6 +9,7 @@ const { test } = require("node:test");
 const { createCaptureArtifact, createTextArtifact } = require("../src/capture");
 const { LazyCopyError } = require("../src/errors");
 const { DEFAULT_HOTKEY, launchAgentPlist, runCli } = require("../src/cli");
+const { startupShortcutPath, uninstallHotkey } = require("../src/windows");
 
 const repoRoot = path.resolve(__dirname, "..");
 const oneByOnePng = Buffer.from(
@@ -623,7 +624,7 @@ test("appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot", 
   assert.match(payload.plist, /com\.lazycopy\.hotkey/);
   assert.match(payload.plist, /shift\+space/);
   assert.doesNotMatch(payload.plist, /control\+space/);
-  assert.match(payload.plist, /appshot/);
+  assert.equal(payload.plist.includes("appshot"), true);
   assert.match(payload.plist, /hotkey/);
   assert.match(payload.plist, /run/);
 });
@@ -646,7 +647,7 @@ test("appshot hotkey install respects an explicit custom key", async (t) => {
   assert.match(payload.plist, /control\+space/);
 });
 
-test("Windows appshot hotkey install dry-run emits a startup listener command", async (t) => {
+test("Windows appshot hotkey install dry-run emits a startup watcher command", async (t) => {
   const stdout = captureWrites();
 
   const exitCode = await runCli(
@@ -668,6 +669,7 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
   assert.match(payload.startupPath, /LazyCopy-AppShot-Hotkey\.cmd$/);
   assert.equal(payload.key, "shift+space");
   assert.match(payload.logPath, /LazyCopy\\appshot-hotkey\.log$/);
+  assert.equal(payload.mode, "watcher");
   assert.equal(payload.command[0], "powershell.exe");
   assert.deepEqual(payload.command.slice(1, 6), [
     "-NoProfile",
@@ -676,7 +678,18 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
     "-STA",
     "-File",
   ]);
-  assert.match(payload.command[6], /windows-hotkey\.ps1$/);
+  assert.match(payload.command[6], /windows-appshot-watch\.ps1$/);
+  assert.match(payload.command.join("\n"), /windows-hotkey\.ps1/);
+  assert.deepEqual(payload.command.slice(7, 14), [
+    "-Key",
+    "shift+space",
+    "-AppName",
+    "Codex",
+    "-LogPath",
+    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+    "-PollSeconds",
+  ]);
+  assert.equal(payload.command[14], "2");
   assert.equal(payload.command.includes("run"), false);
   assert.match(payload.startupCommand, /powershell\.exe/);
   assert.match(payload.startupCommand, /-WindowStyle Hidden/);
@@ -691,7 +704,7 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
   ]);
 });
 
-test("Windows appshot hotkey install starts the direct PowerShell listener", async (t) => {
+test("Windows appshot hotkey install starts the watcher process", async (t) => {
   const stdout = captureWrites();
   const installed = [];
 
@@ -719,12 +732,14 @@ test("Windows appshot hotkey install starts the direct PowerShell listener", asy
   assert.equal(exitCode, 0);
   assert.equal(installed.length, 1);
   assert.equal(installed[0].command[0], "powershell.exe");
-  assert.match(installed[0].command[6], /windows-hotkey\.ps1$/);
+  assert.match(installed[0].command[6], /windows-appshot-watch\.ps1$/);
+  assert.match(installed[0].command.join("\n"), /windows-hotkey\.ps1/);
   assert.equal(installed[0].command.includes("run"), false);
   assert.match(installed[0].options.startupCommand, /-WindowStyle Hidden/);
 
   const payload = stdout.json();
   assert.equal(payload.started, true);
+  assert.equal(payload.mode, "watcher");
   assert.deepEqual(payload.command, installed[0].command);
 });
 
@@ -747,6 +762,95 @@ test("Windows appshot hotkey dry-run omits log-path args when no log path is ava
   const payload = stdout.json();
   assert.equal(payload.command.includes("--log-path"), false);
   assert.equal(payload.command.some((value) => value == null || value === "undefined"), false);
+});
+
+test("Windows appshot hotkey run keeps the direct PowerShell listener path", async (t) => {
+  const dir = await makeTempDir(t);
+  const powershellShim = path.join(dir, "powershell-shim.js");
+  const argvPath = path.join(dir, "argv.json");
+  await fs.writeFile(
+    powershellShim,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.writeFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)));
+`,
+  );
+  await fs.chmod(powershellShim, 0o755);
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "run", "--key", "shift+space", "--app", "Codex"],
+    {
+      inheritStdio: false,
+      stdout: { write: () => {} },
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        platform: "win32",
+        powershellBin: () => powershellShim,
+        hotkeyLogPath: () => "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const args = JSON.parse(await fs.readFile(argvPath, "utf8"));
+  assert.match(args[5], /windows-hotkey\.ps1$/);
+  assert.doesNotMatch(args.join("\n"), /windows-appshot-watch\.ps1/);
+});
+
+test("Windows watcher helper manages the visible Codex listener lifecycle", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-appshot-watch.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /\[string\]\$Key = "shift\+space"/);
+  assert.match(script, /\[string\]\$AppName = "Codex"/);
+  assert.match(script, /\[int\]\$PollSeconds = 2/);
+  assert.match(script, /\[regex\]::Escape\(\$AppName\)/);
+  assert.match(script, /MainWindowHandle -ne 0/);
+  assert.match(script, /ProcessName -match \$escaped/);
+  assert.match(script, /MainWindowTitle -match \$escaped/);
+  assert.match(script, /Stop-Process -Id \$Process\.Id/);
+  assert.match(script, /\[Math\]::Min\(\$restartDelay \* 2, \$maxBackoffSeconds\)/);
+  assert.match(script, /\$maxBackoffSeconds = 30/);
+  for (const marker of [
+    "watcher-start",
+    "codex-visible",
+    "codex-hidden",
+    "listener-start",
+    "listener-started",
+    "listener-exited",
+    "listener-stop-requested",
+    "listener-restart",
+    "watcher-failed",
+    "watcher-stop",
+  ]) {
+    assert.match(script, new RegExp(marker));
+  }
+  assert.equal(script.includes(["Stop-Process", "-Name"].join(" ")), false);
+  assert.equal(script.includes(["Get-Process", "|", "Stop-Process"].join(" ")), false);
+});
+
+test("Windows appshot hotkey uninstall removes only the Startup launcher", async (t) => {
+  const appData = await makeTempDir(t);
+  const originalAppData = process.env.APPDATA;
+  process.env.APPDATA = appData;
+  t.after(() => {
+    if (originalAppData == null) {
+      delete process.env.APPDATA;
+    } else {
+      process.env.APPDATA = originalAppData;
+    }
+  });
+
+  const shortcut = startupShortcutPath();
+  await fs.mkdir(path.dirname(shortcut), { recursive: true });
+  await fs.writeFile(shortcut, "@echo off\r\nrem old direct listener\r\n");
+
+  const result = await uninstallHotkey({ platform: "win32" });
+
+  assert.equal(result.startupPath, shortcut);
+  await assert.rejects(fs.stat(shortcut), { code: "ENOENT" });
 });
 
 test("Windows hotkey helper defaults to Shift+Space when run directly", async () => {
@@ -810,7 +914,7 @@ test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space sur
   });
 
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /appshot/);
+  assert.equal(help.stdout.includes("appshot"), true);
   assert.match(help.stdout, /dd/);
   assert.match(help.stdout, /codex/);
   assert.match(help.stdout, /Claude Code/);
