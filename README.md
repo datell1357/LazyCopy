@@ -1,17 +1,21 @@
 # LazyCopy
 
-LazyCopy is a Windows-first Codex skill and local CLI for two quick actions:
+Stop pasting walls of context. Let Codex use the window or clipboard you already have.
 
-- Press `Shift+Space` to capture the active window and paste it into Codex Desktop.
-- Type `/dd ...`, `$dd ...`, `/ㅇㅇ ...`, `$ㅇㅇ ...`, `dd ...`, or `ㅇㅇ ...` to send the latest clipboard content to Codex or Claude Code.
+Windows-first AppShot + `dd` for Codex: press one hotkey to send the active window into Codex Desktop, or type one short `dd` message to hand over the latest clipboard text/image.
 
-GitHub URL:
+![Windows first](https://img.shields.io/badge/Windows-first-0078D4?style=flat-square)
+![Codex Desktop](https://img.shields.io/badge/Codex-Desktop%20%2B%20CLI-111111?style=flat-square)
+![AppShot](https://img.shields.io/badge/AppShot-Shift%2BSpace-5B8DEF?style=flat-square)
+![dd](https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
+![GitHub stars](https://img.shields.io/github/stars/datell1357/LazyCopy?style=flat-square)
 
-```text
-https://github.com/datell1357/LazyCopy.git
-```
+Install · Start here · Pick by the moment · Trust & setup · Commands
 
-## Install From GitHub
+---
+
+## Install
 
 Run this in PowerShell:
 
@@ -39,7 +43,7 @@ The installer does four things:
 
 No separate AppShot skill call is required.
 
-## Install From Codex Desktop
+### Install from Codex Desktop
 
 Open Codex Desktop and paste this message:
 
@@ -51,22 +55,17 @@ After install, Shift+Space should be the AppShot hotkey and dd should be availab
 
 Start a fresh Codex thread after install.
 
-## Install From Codex CLI
-
-Run:
+### Install from Codex CLI
 
 ```powershell
 codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md. After install, Shift+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.'
 ```
 
-## Update
+---
 
-```powershell
-git -C "$HOME\.codex\skills\dd" pull --ff-only
-npm --prefix "$HOME\.codex\skills\dd" run install-user
-```
+## Start here
 
-## User-Facing Usage
+> Two handoffs, kept separate: AppShot is the installed hotkey; `dd` is the clipboard command.
 
 ### AppShot
 
@@ -75,8 +74,6 @@ Press:
 ```text
 Shift+Space
 ```
-
-AppShot is only the installed hotkey; it is not a chat command.
 
 Expected behavior:
 
@@ -108,7 +105,41 @@ Expected behavior:
 - LazyCopy uses Claude Code only when the message explicitly asks for Claude.
 - The user does not need to pass `--agent`, `--prompt`, `--prefer`, or other flags.
 
-## Direct CLI Usage
+---
+
+## Pick by the moment
+
+If you need to... | Use this
+--- | ---
+Show Codex the current app window | Press `Shift+Space`
+Ask about the latest clipboard image | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
+Ask about copied text without flooding chat | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
+Use Claude Code instead of Codex | Add an explicit Claude request, or run `dd "..." --agent claude`
+Reinstall or diagnose the hotkey | Use `dd appshot hotkey ...`
+
+---
+
+## Trust & setup
+
+LazyCopy is intended for Windows 10 or Windows 11 with Git, Node.js, Codex CLI, and Codex Desktop installed.
+
+- AppShot is only the installed hotkey; it is not a chat command.
+- `dd` keeps raw clipboard text in the local artifact file so the selected agent can read it, while stdout and manifest previews are redacted.
+- No Windows permission setup is documented here; the helper scripts run locally through PowerShell.
+- The Windows implementation uses PowerShell with `-ExecutionPolicy Bypass` for local helper scripts.
+
+---
+
+## Commands
+
+### Update
+
+```powershell
+git -C "$HOME\.codex\skills\dd" pull --ff-only
+npm --prefix "$HOME\.codex\skills\dd" run install-user
+```
+
+### Direct CLI usage
 
 In a Windows terminal, use the short commands directly:
 
@@ -144,7 +175,7 @@ Run the hotkey listener in the foreground:
 dd appshot hotkey run --key shift+space --app Codex
 ```
 
-## Smoke Test
+### Smoke test
 
 ```powershell
 dd --help
@@ -153,18 +184,20 @@ Test-Path "$HOME\.codex\prompts\dd.md"
 Test-Path "$HOME\.codex\prompts\ㅇㅇ.md"
 ```
 
-Then verify dd privacy behavior:
+Then verify `dd` privacy behavior:
 
 ```powershell
 Set-Clipboard "LazyCopy private clipboard smoke test"
 dd "Use this context" --dry-run --prefer text --json
 ```
 
-Expected dd dry-run behavior:
+Expected `dd` dry-run behavior:
 
 - `dd.args` contains `<prompt-with-clipboard-text:redacted>`.
 - JSON output and `manifest.json` do not contain raw clipboard text.
 - The artifact `clipboard.txt` keeps raw clipboard text so the selected agent can read it.
+
+---
 
 ## dd Attribution
 
@@ -177,8 +210,6 @@ LazyCopy's `dd` clipboard workflow is adapted from fivetaku's `dd`, distributed 
 
 LazyCopy keeps this attribution because the upstream `dd` workflow and command surface inspired the local clipboard text/image handoff used here. The upstream MIT notice is preserved in `THIRD_PARTY_NOTICES.md`.
 
-## Windows Notes
+## License
 
-LazyCopy is intended for Windows 10 or Windows 11 with Git, Node.js, Codex CLI, and Codex Desktop installed.
-
-The Windows implementation uses PowerShell with `-ExecutionPolicy Bypass` for local helper scripts.
+MIT
