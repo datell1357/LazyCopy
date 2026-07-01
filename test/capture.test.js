@@ -862,8 +862,10 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
   ]);
   const fastCommand = JSON.parse(Buffer.from(listenerCommand[12], "base64").toString("utf8"));
   assert.equal(payload.command.includes("run"), false);
-  assert.match(payload.startupCommand, /powershell\.exe/);
-  assert.match(payload.startupCommand, /-WindowStyle Hidden/);
+  assert.match(payload.startupCommand, /node/);
+  assert.match(payload.startupCommand, /start-windows-appshot-watch\.js/);
+  assert.match(payload.startupCommand, /appshot-hotkey\.log/);
+  assert.doesNotMatch(payload.startupCommand, /Start-Process/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
   const fastScriptIndex = fastCommand.findIndex((value) => /windows-appshot-fast\.ps1$/.test(value));
   assert.ok(fastScriptIndex !== -1);
@@ -939,7 +941,8 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(fastCommand.some((value) => /windows-appshot-fast\.ps1$/.test(value)), true);
   assert.equal(fastCommand.filter((value) => value === "-LogPath").length, 1);
   assert.equal(installed[0].command.includes("run"), false);
-  assert.match(installed[0].options.startupCommand, /-WindowStyle Hidden/);
+  assert.match(installed[0].options.startupCommand, /start-windows-appshot-watch\.js/);
+  assert.doesNotMatch(installed[0].options.startupCommand, /Start-Process/);
 
   const payload = stdout.json();
   assert.equal(payload.started, true);
@@ -947,15 +950,14 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.deepEqual(payload.command, installed[0].command);
 });
 
-test("Windows hotkey install starts the written Startup launcher", async () => {
+test("Windows hotkey install writes a Startup launcher and starts the watcher directly", async () => {
   const source = await fs.readFile(path.join(repoRoot, "src", "windows.js"), "utf8");
 
-  assert.match(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
-  assert.match(source, /function quoteWindowsProcessArgument/);
-  assert.match(source, /const argumentLine = command\.slice\(1\)\.map\(quoteWindowsProcessArgument\)\.join\(" "\)/);
-  assert.match(source, /-ArgumentList \$\{quotePowerShellString\(argumentLine\)\}/);
-  assert.doesNotMatch(source, /-ArgumentList @\(\$\{args\}\)/);
-  assert.doesNotMatch(source, /spawn\(command\[0\], command\.slice\(1\)/);
+  assert.match(source, /start-windows-appshot-watch\.js/);
+  assert.match(source, /spawn\(command\[0\], command\.slice\(1\)/);
+  assert.match(source, /shell:\s*false/);
+  assert.doesNotMatch(source, /Start-Process -WindowStyle Hidden/);
+  assert.doesNotMatch(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
 });
 
 test("Windows appshot hotkey install can refresh Startup without starting a second watcher", async (t) => {
@@ -1278,6 +1280,21 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
   ]) {
     assert.match(script, new RegExp(marker));
   }
+});
+
+test("Windows startup launcher spawns the watcher without shell quoting", async () => {
+  const launcher = await fs.readFile(
+    path.join(repoRoot, "scripts", "start-windows-appshot-watch.js"),
+    "utf8",
+  );
+
+  assert.match(launcher, /JSON\.parse\(Buffer\.from\(commandBase64, "base64"\)\.toString\("utf8"\)\)/);
+  assert.match(launcher, /spawn\(command\[0\], command\.slice\(1\)/);
+  assert.match(launcher, /shell:\s*false/);
+  assert.match(launcher, /windowsHide:\s*true/);
+  assert.match(launcher, /startup-launcher-spawned/);
+  assert.match(launcher, /startup-launcher-failed/);
+  assert.doesNotMatch(launcher, /Start-Process/);
 });
 
 test("Windows hotkey helper keeps listening when an appshot launch fails", async () => {
