@@ -382,6 +382,7 @@ test("Windows installer keeps watcher setup ahead of optional npm link", async (
   assert.ok(npmLinkIndex !== -1);
   assert.ok(wrappersIndex < npmLinkIndex);
   assert.ok(hotkeyIndex < npmLinkIndex);
+  assert.match(installer, /"--json"/);
   assert.match(installer, /runNpmLink\(\{ optional: true \}\)/);
 });
 
@@ -955,6 +956,8 @@ test("Windows hotkey install writes a Startup launcher and starts the watcher di
 
   assert.match(source, /start-windows-appshot-watch\.js/);
   assert.match(source, /spawn\(command\[0\], command\.slice\(1\)/);
+  assert.match(source, /child\.once\("spawn"/);
+  assert.match(source, /installer-spawned pid=\$\{pid\}/);
   assert.match(source, /shell:\s*false/);
   assert.doesNotMatch(source, /Start-Process -WindowStyle Hidden/);
   assert.doesNotMatch(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
