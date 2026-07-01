@@ -426,10 +426,29 @@ test("appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot", 
   const payload = stdout.json();
   assert.equal(payload.ok, true);
   assert.match(payload.plist, /com\.lazycopy\.hotkey/);
-  assert.match(payload.plist, /control\+space/);
+  assert.match(payload.plist, /shift\+space/);
+  assert.doesNotMatch(payload.plist, /control\+space/);
   assert.match(payload.plist, /appshot/);
   assert.match(payload.plist, /hotkey/);
   assert.match(payload.plist, /run/);
+});
+
+test("appshot hotkey install respects an explicit custom key", async (t) => {
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "install", "--key", "control+space", "--app", "Codex", "--dry-run"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.match(payload.plist, /control\+space/);
 });
 
 test("Windows appshot hotkey install dry-run emits a startup listener command", async (t) => {
@@ -456,13 +475,23 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
     "hotkey",
     "run",
     "--key",
-    "control+space",
+    "shift+space",
     "--app",
     "Codex",
   ]);
 });
 
-test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Ctrl+Space surfaces", async () => {
+test("Windows hotkey helper defaults to Shift+Space when run directly", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-hotkey.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /\[string\]\$Key = "shift\+space"/);
+  assert.doesNotMatch(script, /\[string\]\$Key = "control\+space"/);
+});
+
+test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces", async () => {
   const bin = path.join(repoRoot, "bin", "lazycopy.js");
   const help = spawnSync(process.execPath, [bin, "--help"], {
     cwd: repoRoot,
@@ -474,7 +503,7 @@ test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Ctrl+Space surf
   assert.match(help.stdout, /dd/);
   assert.match(help.stdout, /codex/);
   assert.match(help.stdout, /Claude Code/);
-  assert.match(help.stdout, /control\+space/);
+  assert.match(help.stdout, /shift\+space/);
   assert.match(help.stdout, /ㅇㅇ/);
   assert.equal(help.stdout.includes(["command", "shift", "l"].join("+")), false);
   assert.equal(help.stdout.includes("--desktop-current"), false);
@@ -487,5 +516,15 @@ test("launchAgentPlist escapes argument values", () => {
   );
 
   assert.match(plist, /Codex &amp; Friends/);
-  assert.match(plist, /control\+space/);
+  assert.match(plist, /shift\+space/);
+});
+
+test("windows paste script does not restore or resize the target app window", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-paste-into-app.ps1"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(script, /ShowWindowAsync\([^\n]+,\s*9\)/);
+  assert.doesNotMatch(script, /SW_RESTORE|ShowWindow\(|SetWindowPos|MoveWindow|Resize/i);
 });

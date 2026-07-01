@@ -1,0 +1,17 @@
+# windows hotkey helper default scan
+Wed Jul  1 05:16:24 UTC 2026
+
+## relevant lines
+2:  [string]$Key = "shift+space",
+35:  public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+38:  public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+79:  $keyCode = [int][System.Enum]::Parse([System.Windows.Forms.Keys], $keyName, $true)
+80:  return @{ Modifiers = [uint32]$modifiers; KeyCode = [uint32]$keyCode }
+83:$parts = ConvertTo-HotkeyParts $Key
+87:if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {
+88:  throw "Could not register hotkey $Key."
+93:  Write-Output "LazyCopy hotkey listening: $Key"
+106:  [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null
+
+[rg_exit:0]
+[assert:windows_hotkey_default_shift_space:PASS]

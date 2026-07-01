@@ -1,0 +1,5 @@
+PASS: no literal /appshot or $appshot triggers in tracked Markdown product docs.
+Scanned files:
+README.md
+SKILL.md
+prompts/dd.md

@@ -1,0 +1,183 @@
+{
+  "qualityGate": {
+    "codeReview": {
+      "by": "lazycodex-code-reviewer",
+      "recommendation": "APPROVE",
+      "codeQualityStatus": "CLEAR",
+      "reportPath": ".omo/evidence/shift-space-no-resize-appshot-work-code-review.md",
+      "evidence": "Final code review approved the scoped diff after the scripts/windows-hotkey.ps1 default was fixed to shift+space.",
+      "blockers": []
+    },
+    "manualQa": {
+      "by": "lazycodex-qa-executor",
+      "status": "passed",
+      "evidence": "Surface verifier final reverify passed npm test, dry-run surfaces, Windows helper scan, no-restore scan, scope/doc-trigger/dd guard checks, and cleanup.",
+      "surfaceEvidence": [
+        {
+          "id": "surface-default-hotkey",
+          "criterionRef": "C001",
+          "surface": "cli",
+          "invocation": "node bin/lazycopy.js appshot hotkey install --app Codex --dry-run --json",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-default-hotkey"]
+        },
+        {
+          "id": "surface-custom-key",
+          "criterionRef": "C001",
+          "surface": "cli",
+          "invocation": "node bin/lazycopy.js appshot hotkey install --key control+space --app Codex --dry-run --json",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-custom-key"]
+        },
+        {
+          "id": "surface-windows-helper",
+          "criterionRef": "C001",
+          "surface": "cli",
+          "invocation": "rg -n \"Key|RegisterHotKey|UnregisterHotKey\" scripts/windows-hotkey.ps1",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-windows-hotkey"]
+        },
+        {
+          "id": "surface-no-resize",
+          "criterionRef": "C002",
+          "surface": "cli",
+          "invocation": "rg -n \"ShowWindowAsync\\(|SW_RESTORE|Maximize|Minimize|Resize|SetWindowPos|MoveWindow\" scripts/windows-paste-into-app.ps1",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-no-restore"]
+        },
+        {
+          "id": "surface-regression",
+          "criterionRef": "C003",
+          "surface": "cli",
+          "invocation": "npm test",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-npm-test"]
+        },
+        {
+          "id": "surface-scope",
+          "criterionRef": "C003",
+          "surface": "cli",
+          "invocation": "git status --short, git diff --name-only, product Markdown trigger scan, dd behavior diff guard",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-scope"]
+        }
+      ],
+      "adversarialCases": [
+        {
+          "id": "adv-shortcut-collision",
+          "criterionRef": "C001",
+          "scenario": "Ctrl+Space conflicted with Codex window sizing, so the default must move to Shift+Space without removing explicit custom-key support.",
+          "expectedBehavior": "Default dry-run and raw Windows helper use shift+space, while explicit --key control+space remains supported.",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-default-hotkey", "artifact-custom-key", "artifact-windows-hotkey"]
+        },
+        {
+          "id": "adv-window-state",
+          "criterionRef": "C002",
+          "scenario": "AppShot paste should not restore, resize, maximize, or minimize the target Codex window.",
+          "expectedBehavior": "Paste path only foregrounds and sends Ctrl+V; restore/resize tokens are absent.",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-no-restore"]
+        },
+        {
+          "id": "adv-surface-drift",
+          "criterionRef": "C003",
+          "scenario": "AppShot must not become a chat command and dd behavior must remain separate.",
+          "expectedBehavior": "Product docs contain no /appshot or $appshot trigger, and core dd files are unchanged.",
+          "verdict": "passed",
+          "artifactRefs": ["artifact-scope", "artifact-manual-qa"]
+        }
+      ],
+      "artifactRefs": [
+        {
+          "id": "artifact-default-hotkey",
+          "kind": "cli-transcript",
+          "description": "Default AppShot hotkey dry-run emits shift+space and not control+space.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-surface.txt"
+        },
+        {
+          "id": "artifact-custom-key",
+          "kind": "cli-transcript",
+          "description": "Explicit control+space custom key dry-run still works.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-custom-key-surface.txt"
+        },
+        {
+          "id": "artifact-windows-hotkey",
+          "kind": "log",
+          "description": "Windows direct hotkey helper defaults to shift+space.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-windows-hotkey-scan.txt"
+        },
+        {
+          "id": "artifact-no-restore",
+          "kind": "log",
+          "description": "Windows paste script has no restore or resize tokens.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-no-restore-scan.txt"
+        },
+        {
+          "id": "artifact-npm-test",
+          "kind": "cli-transcript",
+          "description": "npm test passes 20 tests.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-npm-test.txt"
+        },
+        {
+          "id": "artifact-scope",
+          "kind": "log",
+          "description": "Scope, doc trigger, and dd behavior guard receipt.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-scope.txt"
+        },
+        {
+          "id": "artifact-cleanup",
+          "kind": "log",
+          "description": "Cleanup receipt showing no QA processes or temp roots remain.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-cleanup.txt"
+        },
+        {
+          "id": "artifact-manual-qa",
+          "kind": "log",
+          "description": "Manual QA matrix for the final AppShot outcome.",
+          "path": ".omo/evidence/shift-space-no-resize-appshot-work-manual-qa.md"
+        },
+        {
+          "id": "artifact-surface-report",
+          "kind": "log",
+          "description": "Independent B surface verifier final report.",
+          "path": ".omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/artifacts/B-surface-verifier-report.md"
+        }
+      ]
+    },
+    "gateReview": {
+      "by": "lazycodex-gate-reviewer",
+      "recommendation": "APPROVE",
+      "reportPath": ".omo/evidence/shift-space-no-resize-appshot-work-gate-review.md",
+      "evidence": "Final gate review approved after the code review CLEAR report, manual QA matrix, and final B evidence were present.",
+      "blockers": []
+    },
+    "iteration": {
+      "fullRerun": true,
+      "status": "passed",
+      "rerunCommands": [
+        "npm test",
+        "git diff --check",
+        "node bin/lazycopy.js --help",
+        "node bin/lazycopy.js appshot hotkey install --app Codex --dry-run --json",
+        "node bin/lazycopy.js appshot hotkey install --key control+space --app Codex --dry-run --json",
+        "rg -n \"ShowWindowAsync\\(|SW_RESTORE|Maximize|Minimize|Resize|SetWindowPos|MoveWindow\" scripts/windows-paste-into-app.ps1",
+        "rg -n \"Key|RegisterHotKey|UnregisterHotKey\" scripts/windows-hotkey.ps1"
+      ],
+      "evidence": "Final B reverify receipts and code review receipts passed after the Windows helper default follow-up."
+    },
+    "criteriaCoverage": {
+      "totalCriteria": 3,
+      "passCount": 3,
+      "originalIntent": "User wanted Shift+Space AppShot hotkey without Codex window resizing, while dd remains a separate clipboard-to-agent surface.",
+      "desiredOutcome": "LazyCopy AppShot installs and documents Shift+Space by default, supports explicit control+space, foreground-pastes without restore or resize, and leaves dd behavior intact.",
+      "userOutcomeReview": "Evidence confirms npm test 20/20, default and custom dry-run surfaces, raw Windows helper default, no restore/resize scan, product doc trigger scan, cleanup, code review CLEAR, and independent surface verification.",
+      "adversarialClassesCovered": [
+        "shortcut_collision",
+        "window_state_regression",
+        "surface_drift",
+        "scope_drift"
+      ]
+    }
+  }
+}

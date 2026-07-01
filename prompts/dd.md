@@ -14,5 +14,5 @@ Rules:
 - Do not ask the user for extra options.
 - Use Codex by default.
 - Use Claude only when the user explicitly asks for Claude Code.
-- Do not invoke AppShot from this prompt. AppShot is handled by the installed `Ctrl+Space` hotkey.
+- Do not invoke AppShot from this prompt. AppShot is handled by the installed `Shift+Space` hotkey.
 - If the user writes Korean shorthand such as `ㅇㅇ`, treat it as dd.

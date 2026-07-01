@@ -1,0 +1,31 @@
+
+> lazycopy@0.2.0 test
+> node --test
+
+✔ createCaptureArtifact writes manifest when given a PNG fixture (9.326375ms)
+✔ createTextArtifact writes clipboard text for prompt use (3.532375ms)
+✔ clipboard command falls back to text when no clipboard image exists (2.440834ms)
+✔ dd codex dry-run builds resume argv from clipboard text (3.083208ms)
+✔ dd codex dry-run attaches clipboard image for AI vision (2.806584ms)
+✔ dd accepts a plain message without flags (1.760708ms)
+✔ Korean shorthand ㅇㅇ maps to dd (2.079375ms)
+✔ Codex dd aliases map to the same default dd behavior (6.162916ms)
+✔ package exposes short terminal commands without lazycopy prefix (0.311875ms)
+✔ dd claude dry-run builds print argv from clipboard text (2.011833ms)
+✔ dd claude dry-run exposes clipboard image artifact directory (2.202041ms)
+✔ appshot desktop captures the front window, copies it, targets Codex, and cleans up (2.698208ms)
+✔ appshot desktop --keep preserves the capture artifact (3.506792ms)
+✔ appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot (0.339708ms)
+✔ appshot hotkey install respects an explicit custom key (0.079583ms)
+✔ Windows appshot hotkey install dry-run emits a startup listener command (0.125208ms)
+✔ lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces (75.213875ms)
+✔ launchAgentPlist escapes argument values (0.104834ms)
+✔ windows paste script does not restore or resize the target app window (1.068625ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 217.767542

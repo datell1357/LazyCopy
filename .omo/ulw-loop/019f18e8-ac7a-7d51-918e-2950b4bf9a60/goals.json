@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "createdAt": "2026-07-01T04:47:16.706Z",
+  "updatedAt": "2026-07-01T06:27:22.245Z",
+  "briefPath": ".omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/brief.md",
+  "goalsPath": ".omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/goals.json",
+  "ledgerPath": ".omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-execute-omo-plans-shift-space-no-res",
+      "title": "Execute .omo/plans/shift-space-no-resize-appshot-work.md: make LazyCo...",
+      "objective": "Execute .omo/plans/shift-space-no-resize-appshot-work.md: make LazyCopy AppShot default to Shift+Space, remove Windows paste restore/resize behavior, verify with RED/GREEN tests and CLI/no-restore evidence. Scope excludes dd behavior changes, AppShot skill commands, and performance rewrites.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "Auxiliary CLI surface: node bin/lazycopy.js appshot hotkey install --app Codex --dry-run --json returns ok:true and generated command contains shift+space, not control+space by default.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-surface.txt",
+          "essential": true,
+          "capturedEvidence": "Final B reverify: default AppShot hotkey dry-run emits shift+space, explicit control+space custom key still works, and scripts/windows-hotkey.ps1 direct helper default is shift+space. Artifacts: task-2-surface.txt, task-2-custom-key-surface.txt, task-2-windows-hotkey-scan.txt.",
+          "status": "pass",
+          "capturedAt": "2026-07-01T05:27:14.016Z"
+        },
+        {
+          "id": "C002",
+          "scenario": "Invariant/failure surface: scripts/windows-paste-into-app.ps1 contains no ShowWindowAsync(..., 9), SW_RESTORE, MoveWindow, SetWindowPos, Maximize, Minimize, or Resize operations in the paste path.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/evidence/shift-space-no-resize-appshot-work/task-2-no-restore-scan.txt",
+          "essential": true,
+          "capturedEvidence": "Final B reverify: Windows paste path has no restore or resize tokens and cleanup receipt shows no QA processes or temp roots left. Artifacts: task-2-no-restore-scan.txt, task-2-cleanup.txt.",
+          "status": "pass",
+          "capturedAt": "2026-07-01T05:27:14.107Z"
+        },
+        {
+          "id": "C003",
+          "scenario": "Regression surface: npm test passes and dd behavior tests remain green after AppShot shortcut/paste changes.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/evidence/shift-space-no-resize-appshot-work/task-1-green.txt",
+          "essential": false,
+          "capturedEvidence": "Final B reverify: npm test passed 20/20, git diff --check passed, scope/doc-trigger/dd guard checks passed. Artifacts: task-2-npm-test.txt, task-2-diff-check.txt, task-2-scope.txt.",
+          "status": "pass",
+          "capturedAt": "2026-07-01T05:27:14.198Z"
+        }
+      ],
+      "attempt": 0,
+      "createdAt": "2026-07-01T04:47:16.706Z",
+      "updatedAt": "2026-07-01T06:27:22.245Z",
+      "completedAt": "2026-07-01T06:27:22.245Z",
+      "evidence": "Final quality gate passed: code review CLEAR, manual QA passed, gate review APPROVE, npm test 20/20, default Shift+Space dry-run, explicit control+space dry-run, Windows helper Shift+Space default, no restore/resize scan, scoped diff and cleanup receipts."
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-07-01T06:27:22.245Z",
+    "evidence": "Final quality gate passed: code review CLEAR, manual QA passed, gate review APPROVE, npm test 20/20, default Shift+Space dry-run, explicit control+space dry-run, Windows helper Shift+Space default, no restore/resize scan, scoped diff and cleanup receipts.",
+    "codexGoal": {
+      "goal": {
+        "threadId": "019f18e8-ac7a-7d51-918e-2950b4bf9a60",
+        "objective": "Complete the durable ulw-loop plan in .omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/019f18e8-ac7a-7d51-918e-2950b4bf9a60/ledger.jsonl as the audit trail.",
+        "status": "complete"
+      }
+    }
+  }
+}

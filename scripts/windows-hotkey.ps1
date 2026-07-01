@@ -1,5 +1,5 @@
 param(
-  [string]$Key = "control+space",
+  [string]$Key = "shift+space",
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$Command
 )
 

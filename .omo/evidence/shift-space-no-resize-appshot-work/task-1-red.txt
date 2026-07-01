@@ -1,0 +1,190 @@
+
+> lazycopy@0.2.0 test
+> node --test --test-name-pattern appshot hotkey|lazycopy help|windows paste
+
+✖ appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot (1.900709ms)
+✔ appshot hotkey install respects an explicit custom key (0.119916ms)
+✖ Windows appshot hotkey install dry-run emits a startup listener command (0.956541ms)
+✖ lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces (54.80875ms)
+✖ windows paste script does not restore or resize the target app window (3.68625ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 1
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 138.01325
+
+✖ failing tests:
+
+test at test/capture.test.js:413:1
+✖ appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot (1.900709ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /shift\+space/. Input:
+  
+  '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
+    '<plist version="1.0">\n' +
+    '<dict>\n' +
+    '  <key>Label</key>\n' +
+    '  <string>com.lazycopy.hotkey</string>\n' +
+    '  <key>ProgramArguments</key>\n' +
+    '  <array>\n' +
+    '    <string>/opt/homebrew/Cellar/node@24/24.18.0/bin/node</string>\n' +
+    '    <string>/Users/yeoreum/Documents/LazyCopy/bin/lazycopy.js</string>\n' +
+    '    <string>appshot</string>\n' +
+    '    <string>hotkey</string>\n' +
+    '    <string>run</string>\n' +
+    '    <string>--key</string>\n' +
+    '    <string>control+space</string>\n' +
+    '    <string>--app</string>\n' +
+    '    <string>Codex</string>\n' +
+    '  </array>\n' +
+    '  <key>RunAtLoad</key>\n' +
+    '  <true/>\n' +
+    '  <key>KeepAlive</key>\n' +
+    '  <true/>\n' +
+    '</dict>\n' +
+    '</plist>\n'
+  
+      at TestContext.<anonymous> (/Users/yeoreum/Documents/LazyCopy/test/capture.test.js:429:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0">\n<dict>\n  <key>Label</key>\n  <string>com.lazycopy.hotkey</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/opt/homebrew/Cellar/node@24/24.18.0/bin/node</string>\n    <string>/Users/yeoreum/Documents/LazyCopy/bin/lazycopy.js</string>\n    <string>appshot</string>\n    <string>hotkey</string>\n    <string>run</string>\n    <string>--key</string>\n    <string>control+space</string>\n    <string>--app</string>\n    <string>Codex</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>KeepAlive</key>\n  <true/>\n</dict>\n</plist>\n',
+    expected: /shift\+space/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/capture.test.js:454:1
+✖ Windows appshot hotkey install dry-run emits a startup listener command (0.956541ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'appshot',
+      'hotkey',
+      'run',
+      '--key',
+  +   'control+space',
+  -   'shift+space',
+      '--app',
+      'Codex'
+    ]
+  
+      at TestContext.<anonymous> (/Users/yeoreum/Documents/LazyCopy/test/capture.test.js:473:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'appshot', 'hotkey', 'run', '--key', 'control+space', '--app', 'Codex' ],
+    expected: [ 'appshot', 'hotkey', 'run', '--key', 'shift+space', '--app', 'Codex' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/capture.test.js:484:1
+✖ lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces (54.80875ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /shift\+space/. Input:
+  
+  'Usage:\n' +
+    '  dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]\n' +
+    '  ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]\n' +
+    '  /dd <message>      Codex Desktop or Codex CLI message input.\n' +
+    '  $dd <message>      Codex skill invocation.\n' +
+    '  /ㅇㅇ <message>     Codex Desktop or Codex CLI message input.\n' +
+    '  $ㅇㅇ <message>     Codex skill invocation.\n' +
+    '  lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]\n' +
+    '  lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]\n' +
+    '  lazycopy appshot hotkey run [--key control+space] [--app Codex]\n' +
+    '  lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]\n' +
+    '\n' +
+    'Commands:\n' +
+    '  appshot    Capture the current window and hand it to Codex Desktop.\n' +
+    '  dd         Package the latest clipboard image or text for Codex CLI or Claude Code.\n' +
+    '  ㅇㅇ       Same as dd for Korean natural-language use.\n' +
+    '\n' +
+    'Options:\n' +
+    '  --json                 Print machine-readable JSON.\n' +
+    '  --fixture-image <png>  PNG file to copy into the artifact.\n' +
+    '  --output-root <dir>    Directory where artifacts are written. Defaults to /Users/yeoreum/.lazycopy/captures.\n' +
+    '  --mode <mode>          active-window, region, or fullscreen.\n' +
+    '  --prefer <kind>        image or text for clipboard reads.\n' +
+    '  --agent <agent>        codex or claude for dd. Defaults to codex.\n' +
+    '  --resume last          Resume or continue the latest CLI-agent session.\n' +
+    '  --prompt <text>        Prompt sent with clipboard content.\n' +
+    '  --dry-run              Print what would run without launching an agent or installing.\n' +
+    '  --keep                 Keep transient artifacts after a successful handoff.\n' +
+    '  --paste-to <app>       App name to activate and paste into. Defaults to Codex.\n' +
+    '  --no-paste             Capture and copy only; do not activate an app.\n' +
+    '  --key <shortcut>       Hotkey such as control+space or control+alt+l.\n' +
+    '  -h, --help             Show this help.\n'
+  
+      at TestContext.<anonymous> (/Users/yeoreum/Documents/LazyCopy/test/capture.test.js:496:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Usage:\n  dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]\n  ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]\n  /dd <message>      Codex Desktop or Codex CLI message input.\n  $dd <message>      Codex skill invocation.\n  /ㅇㅇ <message>     Codex Desktop or Codex CLI message input.\n  $ㅇㅇ <message>     Codex skill invocation.\n  lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]\n  lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]\n  lazycopy appshot hotkey run [--key control+space] [--app Codex]\n  lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]\n\nCommands:\n  appshot    Capture the current window and hand it to Codex Desktop.\n  dd         Package the latest clipboard image or text for Codex CLI or Claude Code.\n  ㅇㅇ       Same as dd for Korean natural-language use.\n\nOptions:\n  --json                 Print machine-readable JSON.\n  --fixture-image <png>  PNG file to copy into the artifact.\n  --output-root <dir>    Directory where artifacts are written. Defaults to /Users/yeoreum/.lazycopy/captures.\n  --mode <mode>          active-window, region, or fullscreen.\n  --prefer <kind>        image or text for clipboard reads.\n  --agent <agent>        codex or claude for dd. Defaults to codex.\n  --resume last          Resume or continue the latest CLI-agent session.\n  --prompt <text>        Prompt sent with clipboard content.\n  --dry-run              Print what would run without launching an agent or installing.\n  --keep                 Keep transient artifacts after a successful handoff.\n  --paste-to <app>       App name to activate and paste into. Defaults to Codex.\n  --no-paste             Capture and copy only; do not activate an app.\n  --key <shortcut>       Hotkey such as control+space or control+alt+l.\n  -h, --help             Show this help.\n',
+    expected: /shift\+space/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test/capture.test.js:512:1
+✖ windows paste script does not restore or resize the target app window (3.68625ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /ShowWindowAsync\([^\n]+,\s*9\)/. Input:
+  
+  'param(\n' +
+    '  [string]$AppName = "Codex"\n' +
+    ')\n' +
+    '\n' +
+    '$ErrorActionPreference = "Stop"\n' +
+    '\n' +
+    'Add-Type -AssemblyName System.Windows.Forms\n' +
+    'Add-Type @"\n' +
+    'using System;\n' +
+    'using System.Runtime.InteropServices;\n' +
+    '\n' +
+    'public static class LazyCopyWin32Paste {\n' +
+    '  [DllImport("user32.dll")]\n' +
+    '  public static extern bool SetForegroundWindow(IntPtr hWnd);\n' +
+    '\n' +
+    '  [DllImport("user32.dll")]\n' +
+    '  public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);\n' +
+    '}\n' +
+    '"@\n' +
+    '\n' +
+    '$escaped = [regex]::Escape($AppName)\n' +
+    '$process = Get-Process |\n' +
+    '  Where-Object {\n' +
+    '    $_.MainWindowHandle -ne 0 -and\n' +
+    '    ($_.ProcessName -match $escaped -or $_.MainWindowTitle -match $escaped)\n' +
+    '  } |\n' +
+    '  Select-Object -First 1\n' +
+    '\n' +
+    'if ($null -eq $process) {\n' +
+    '  throw "Could not find a visible window for $AppName."\n' +
+    '}\n' +
+    '\n' +
+    '[LazyCopyWin32Paste]::ShowWindowAsync($process.MainWindowHandle, 9) | Out-Null\n' +
+    '[LazyCopyWin32Paste]::SetForegroundWindow($process.MainWindowHandle) | Out-Null\n' +
+    'Start-Sleep -Milliseconds 200\n' +
+    '[System.Windows.Forms.SendKeys]::SendWait("^v")\n'
+  
+      at TestContext.<anonymous> (/Users/yeoreum/Documents/LazyCopy/test/capture.test.js:518:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'param(\n  [string]$AppName = "Codex"\n)\n\n$ErrorActionPreference = "Stop"\n\nAdd-Type -AssemblyName System.Windows.Forms\nAdd-Type @"\nusing System;\nusing System.Runtime.InteropServices;\n\npublic static class LazyCopyWin32Paste {\n  [DllImport("user32.dll")]\n  public static extern bool SetForegroundWindow(IntPtr hWnd);\n\n  [DllImport("user32.dll")]\n  public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);\n}\n"@\n\n$escaped = [regex]::Escape($AppName)\n$process = Get-Process |\n  Where-Object {\n    $_.MainWindowHandle -ne 0 -and\n    ($_.ProcessName -match $escaped -or $_.MainWindowTitle -match $escaped)\n  } |\n  Select-Object -First 1\n\nif ($null -eq $process) {\n  throw "Could not find a visible window for $AppName."\n}\n\n[LazyCopyWin32Paste]::ShowWindowAsync($process.MainWindowHandle, 9) | Out-Null\n[LazyCopyWin32Paste]::SetForegroundWindow($process.MainWindowHandle) | Out-Null\nStart-Sleep -Milliseconds 200\n[System.Windows.Forms.SendKeys]::SendWait("^v")\n',
+    expected: /ShowWindowAsync\([^\n]+,\s*9\)/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }

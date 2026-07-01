@@ -1,0 +1,1 @@
+Execute .omo/plans/shift-space-no-resize-appshot-work.md: make LazyCopy AppShot default to Shift+Space, remove Windows paste restore/resize behavior, verify with RED/GREEN tests and CLI/no-restore evidence. Scope excludes dd behavior changes, AppShot skill commands, and performance rewrites.

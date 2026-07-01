@@ -11,7 +11,7 @@ const {
 const { LazyCopyError } = require("./errors");
 const platformSystem = require("./platform");
 
-const DEFAULT_HOTKEY = "control+space";
+const DEFAULT_HOTKEY = "shift+space";
 const VALID_AGENTS = new Set(["codex", "claude"]);
 const DD_COMMAND_ALIASES = new Set(["dd", "ㅇㅇ", "/dd", "$dd", "/ㅇㅇ", "$ㅇㅇ"]);
 
@@ -24,8 +24,8 @@ const usage = `Usage:
   $ㅇㅇ <message>     Codex skill invocation.
   lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
   lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]
-  lazycopy appshot hotkey run [--key control+space] [--app Codex]
-  lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]
+  lazycopy appshot hotkey run [--key shift+space] [--app Codex]
+  lazycopy appshot hotkey install [--key shift+space] [--app Codex] [--dry-run]
 
 Commands:
   appshot    Capture the current window and hand it to Codex Desktop.
@@ -45,7 +45,7 @@ Options:
   --keep                 Keep transient artifacts after a successful handoff.
   --paste-to <app>       App name to activate and paste into. Defaults to Codex.
   --no-paste             Capture and copy only; do not activate an app.
-  --key <shortcut>       Hotkey such as control+space or control+alt+l.
+  --key <shortcut>       Hotkey such as shift+space or control+space.
   -h, --help             Show this help.
 `;
 

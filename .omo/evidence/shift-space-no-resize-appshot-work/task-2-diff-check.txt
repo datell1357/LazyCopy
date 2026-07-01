@@ -1,0 +1,5 @@
+# git diff --check after windows-hotkey follow-up
+Wed Jul  1 05:15:44 UTC 2026
+
+[exit:0]
+[assert:diff_check:PASS]

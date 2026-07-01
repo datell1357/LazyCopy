@@ -12,9 +12,6 @@ using System.Runtime.InteropServices;
 public static class LazyCopyWin32Paste {
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
-
-  [DllImport("user32.dll")]
-  public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
 }
 "@
 
@@ -30,7 +27,6 @@ if ($null -eq $process) {
   throw "Could not find a visible window for $AppName."
 }
 
-[LazyCopyWin32Paste]::ShowWindowAsync($process.MainWindowHandle, 9) | Out-Null
 [LazyCopyWin32Paste]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
 Start-Sleep -Milliseconds 200
 [System.Windows.Forms.SendKeys]::SendWait("^v")

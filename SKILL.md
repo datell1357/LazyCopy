@@ -36,9 +36,9 @@ Use the latest clipboard content as context.
 
 ## AppShot
 
-Do not expose AppShot as a skill command. AppShot is installed as the Windows `Ctrl+Space` hotkey and runs without a separate skill invocation.
+Do not expose AppShot as a skill command. AppShot is installed as the Windows `Shift+Space` hotkey and runs without a separate skill invocation.
 
-When the user asks how AppShot works, explain that pressing `Ctrl+Space` captures the current active window and pastes the image into Codex Desktop.
+When the user asks how AppShot works, explain that pressing `Shift+Space` captures the current active window and pastes the image into Codex Desktop.
 
 ## Privacy
 

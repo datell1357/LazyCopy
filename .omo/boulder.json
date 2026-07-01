@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "active_work_id": "shift-space-no-resize-appshot-work",
+  "works": {
+    "shift-space-no-resize-appshot-work": {
+      "work_id": "shift-space-no-resize-appshot-work",
+      "active_plan": ".omo/plans/shift-space-no-resize-appshot-work.md",
+      "plan_name": "shift-space-no-resize-appshot-work",
+      "session_ids": [
+        "codex:019f18e8-ac7a-7d51-918e-2950b4bf9a60"
+      ],
+      "status": "active",
+      "worktree_path": null
+    }
+  }
+}

@@ -1,0 +1,43 @@
+# scope/status receipt after windows-hotkey follow-up
+2026-07-01T05:16:49.016Z
+
+## git status --short
+ M README.md
+ M SKILL.md
+ M prompts/dd.md
+ M scripts/install-user.js
+ M scripts/windows-hotkey.ps1
+ M scripts/windows-paste-into-app.ps1
+ M src/cli.js
+ M test/capture.test.js
+?? .omo/
+
+## git diff --name-only
+README.md
+SKILL.md
+prompts/dd.md
+scripts/install-user.js
+scripts/windows-hotkey.ps1
+scripts/windows-paste-into-app.ps1
+src/cli.js
+test/capture.test.js
+
+## tracked diff scope check
+[assert:tracked_diff_within_todo1_scope_including_windows_hotkey:PASS]
+
+## scripts/windows-hotkey.ps1 scope presence check
+[assert:windows_hotkey_in_scoped_diff:PASS]
+
+## product Markdown forbidden chat-command trigger scan
+PASS: no literal /appshot or $appshot triggers in tracked Markdown product docs.
+Scanned files:
+README.md
+SKILL.md
+prompts/dd.md
+[assert:no_product_markdown_appshot_chat_trigger:PASS]
+
+## README AppShot wording check
+[assert:readme_hotkey_not_chat_command_wording:PASS]
+
+## dd behavior code diff check
+[assert:no_core_dd_behavior_diff:PASS]

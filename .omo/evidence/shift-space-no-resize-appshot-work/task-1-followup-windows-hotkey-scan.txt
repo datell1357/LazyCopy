@@ -1,0 +1,4 @@
+Scan: scripts/windows-hotkey.ps1 direct helper default
+2:  [string]$Key = "shift+space",
+PASS: found direct helper default [string]$Key = "shift+space".
+PASS: stale direct helper default [string]$Key = "control+space" is absent.

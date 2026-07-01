@@ -1,0 +1,7 @@
+# no restore/resize scan after windows-hotkey follow-up
+Wed Jul  1 05:15:44 UTC 2026
+Command: rg -n "ShowWindowAsync\(|SW_RESTORE|Maximize|Minimize|Resize|SetWindowPos|MoveWindow" scripts/windows-paste-into-app.ps1
+
+
+[rg_exit:1]
+[assert:no_restore_resize_tokens:PASS]

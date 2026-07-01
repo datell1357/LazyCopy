@@ -1,0 +1,138 @@
+
+> lazycopy@0.2.0 test
+> node --test --test-name-pattern Windows hotkey helper
+
+✖ Windows hotkey helper defaults to Shift+Space when run directly (3.001292ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91.041042
+
+✖ failing tests:
+
+test at test/capture.test.js:484:1
+✖ Windows hotkey helper defaults to Shift+Space when run directly (3.001292ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\[string\]\$Key = "shift\+space"/. Input:
+  
+  'param(\n' +
+    '  [string]$Key = "control+space",\n' +
+    '  [Parameter(ValueFromRemainingArguments = $true)][string[]]$Command\n' +
+    ')\n' +
+    '\n' +
+    '$ErrorActionPreference = "Stop"\n' +
+    '\n' +
+    'if ($Command.Count -eq 0) {\n' +
+    '  throw "Missing command to run when the hotkey is pressed."\n' +
+    '}\n' +
+    '\n' +
+    'Add-Type -AssemblyName System.Windows.Forms\n' +
+    'Add-Type @"\n' +
+    'using System;\n' +
+    'using System.Runtime.InteropServices;\n' +
+    '\n' +
+    'public static class LazyCopyHotkey {\n' +
+    '  [StructLayout(LayoutKind.Sequential)]\n' +
+    '  public struct POINT {\n' +
+    '    public int x;\n' +
+    '    public int y;\n' +
+    '  }\n' +
+    '\n' +
+    '  [StructLayout(LayoutKind.Sequential)]\n' +
+    '  public struct MSG {\n' +
+    '    public IntPtr hwnd;\n' +
+    '    public uint message;\n' +
+    '    public IntPtr wParam;\n' +
+    '    public IntPtr lParam;\n' +
+    '    public uint time;\n' +
+    '    public POINT pt;\n' +
+    '  }\n' +
+    '\n' +
+    '  [DllImport("user32.dll", SetLastError = true)]\n' +
+    '  public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);\n' +
+    '\n' +
+    '  [DllImport("user32.dll", SetLastError = true)]\n' +
+    '  public static extern bool UnregisterHotKey(IntPtr hWnd, int id);\n' +
+    '\n' +
+    '  [DllImport("user32.dll")]\n' +
+    '  public static extern sbyte GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);\n' +
+    '\n' +
+    '  [DllImport("user32.dll")]\n' +
+    '  public static extern bool TranslateMessage(ref MSG lpMsg);\n' +
+    '\n' +
+    '  [DllImport("user32.dll")]\n' +
+    '  public static extern IntPtr DispatchMessage(ref MSG lpMsg);\n' +
+    '}\n' +
+    '"@\n' +
+    '\n' +
+    'function ConvertTo-HotkeyParts([string]$Value) {\n' +
+    '  $modifiers = 0\n' +
+    '  $keyName = $null\n' +
+    '\n' +
+    '  foreach ($part in $Value.ToLowerInvariant().Split("+")) {\n' +
+    '    $token = $part.Trim()\n' +
+    '    if ($token -eq "control" -or $token -eq "ctrl") {\n' +
+    '      $modifiers = $modifiers -bor 0x0002\n' +
+    '    } elseif ($token -eq "alt" -or $token -eq "option") {\n' +
+    '      $modifiers = $modifiers -bor 0x0001\n' +
+    '    } elseif ($token -eq "shift") {\n' +
+    '      $modifiers = $modifiers -bor 0x0004\n' +
+    '    } elseif ($token -eq "win" -or $token -eq "windows") {\n' +
+    '      $modifiers = $modifiers -bor 0x0008\n' +
+    '    } elseif ($token -eq "space") {\n' +
+    '      $keyName = "Space"\n' +
+    '    } elseif ($token.Length -eq 1) {\n' +
+    '      $keyName = $token.ToUpperInvariant()\n' +
+    '    } else {\n' +
+    '      $keyName = $token\n' +
+    '    }\n' +
+    '  }\n' +
+    '\n' +
+    '  if ($null -eq $keyName) {\n' +
+    '    throw "Hotkey must include a non-modifier key."\n' +
+    '  }\n' +
+    '\n' +
+    '  $modifiers = $modifiers -bor 0x4000\n' +
+    '  $keyCode = [int][System.Enum]::Parse([System.Windows.Forms.Keys], $keyName, $true)\n' +
+    '  return @{ Modifiers = [uint32]$modifiers; KeyCode = [uint32]$keyCode }\n' +
+    '}\n' +
+    '\n' +
+    '$parts = ConvertTo-HotkeyParts $Key\n' +
+    '$id = 1\n' +
+    '$message = New-Object LazyCopyHotkey+MSG\n' +
+    '\n' +
+    'if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {\n' +
+    '  throw "Could not register hotkey $Key."\n' +
+    '}\n' +
+    '\n' +
+    'try {\n' +
+    '  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n' +
+    '  Write-Output "LazyCopy hotkey listening: $Key"\n' +
+    '  while ([LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0) -ne 0) {\n' +
+    '    if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {\n' +
+    '      if ($Command.Count -eq 1) {\n' +
+    '        Start-Process -FilePath $Command[0] -WindowStyle Hidden\n' +
+    '      } else {\n' +
+    '        Start-Process -FilePath $Command[0] -ArgumentList $Command[1..($Command.Count - 1)] -WindowStyle Hidden\n' +
+    '      }\n' +
+    '    }\n' +
+    '    [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null\n' +
+    '    [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null\n' +
+    '  }\n' +
+    '} finally {\n' +
+    '  [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null\n' +
+    '}\n'
+  
+      at TestContext.<anonymous> (/Users/yeoreum/Documents/LazyCopy/test/capture.test.js:490:10)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'param(\n  [string]$Key = "control+space",\n  [Parameter(ValueFromRemainingArguments = $true)][string[]]$Command\n)\n\n$ErrorActionPreference = "Stop"\n\nif ($Command.Count -eq 0) {\n  throw "Missing command to run when the hotkey is pressed."\n}\n\nAdd-Type -AssemblyName System.Windows.Forms\nAdd-Type @"\nusing System;\nusing System.Runtime.InteropServices;\n\npublic static class LazyCopyHotkey {\n  [StructLayout(LayoutKind.Sequential)]\n  public struct POINT {\n    public int x;\n    public int y;\n  }\n\n  [StructLayout(LayoutKind.Sequential)]\n  public struct MSG {\n    public IntPtr hwnd;\n    public uint message;\n    public IntPtr wParam;\n    public IntPtr lParam;\n    public uint time;\n    public POINT pt;\n  }\n\n  [DllImport("user32.dll", SetLastError = true)]\n  public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);\n\n  [DllImport("user32.dll", SetLastError = true)]\n  public static extern bool UnregisterHotKey(IntPtr hWnd, int id);\n\n  [DllImport("user32.dll")]\n  public static extern sbyte GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);\n\n  [DllImport("user32.dll")]\n  public static extern bool TranslateMessage(ref MSG lpMsg);\n\n  [DllImport("user32.dll")]\n  public static extern IntPtr DispatchMessage(ref MSG lpMsg);\n}\n"@\n\nfunction ConvertTo-HotkeyParts([string]$Value) {\n  $modifiers = 0\n  $keyName = $null\n\n  foreach ($part in $Value.ToLowerInvariant().Split("+")) {\n    $token = $part.Trim()\n    if ($token -eq "control" -or $token -eq "ctrl") {\n      $modifiers = $modifiers -bor 0x0002\n    } elseif ($token -eq "alt" -or $token -eq "option") {\n      $modifiers = $modifiers -bor 0x0001\n    } elseif ($token -eq "shift") {\n      $modifiers = $modifiers -bor 0x0004\n    } elseif ($token -eq "win" -or $token -eq "windows") {\n      $modifiers = $modifiers -bor 0x0008\n    } elseif ($token -eq "space") {\n      $keyName = "Space"\n    } elseif ($token.Length -eq 1) {\n      $keyName = $token.ToUpperInvariant()\n    } else {\n      $keyName = $token\n    }\n  }\n\n  if ($null -eq $keyName) {\n    throw "Hotkey must include a non-modifier key."\n  }\n\n  $modifiers = $modifiers -bor 0x4000\n  $keyCode = [int][System.Enum]::Parse([System.Windows.Forms.Keys], $keyName, $true)\n  return @{ Modifiers = [uint32]$modifiers; KeyCode = [uint32]$keyCode }\n}\n\n$parts = ConvertTo-HotkeyParts $Key\n$id = 1\n$message = New-Object LazyCopyHotkey+MSG\n\nif (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {\n  throw "Could not register hotkey $Key."\n}\n\ntry {\n  [Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n  Write-Output "LazyCopy hotkey listening: $Key"\n  while ([LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0) -ne 0) {\n    if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {\n      if ($Command.Count -eq 1) {\n        Start-Process -FilePath $Command[0] -WindowStyle Hidden\n      } else {\n        Start-Process -FilePath $Command[0] -ArgumentList $Command[1..($Command.Count - 1)] -WindowStyle Hidden\n      }\n    }\n    [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null\n    [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null\n  }\n} finally {\n  [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null\n}\n',
+    expected: /\[string\]\$Key = "shift\+space"/,
+    operator: 'match',
+    diff: 'simple'
+  }

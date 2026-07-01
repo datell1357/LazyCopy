@@ -1,0 +1,21 @@
+# cleanup receipt after windows-hotkey follow-up
+Wed Jul  1 05:17:00 UTC 2026
+
+Todo 2 final reverify launched no hotkey listener, no paste session, and no temp capture root; it used tests, dry-runs, scans, and evidence/report files only.
+
+## related process scan (excluding this shell/rg/sparkshell)
+[assert:no_related_qa_processes_left:PASS]
+
+## task-specific temp root scan
+[assert:no_task2_temp_roots:PASS]
+
+## git status after evidence writes
+ M README.md
+ M SKILL.md
+ M prompts/dd.md
+ M scripts/install-user.js
+ M scripts/windows-hotkey.ps1
+ M scripts/windows-paste-into-app.ps1
+ M src/cli.js
+ M test/capture.test.js
+?? .omo/

@@ -1,0 +1,1 @@
+PASS: no restore/resize calls found in scripts/windows-paste-into-app.ps1

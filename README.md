@@ -2,7 +2,7 @@
 
 LazyCopy is a Windows-first Codex skill and local CLI for two quick actions:
 
-- Press `Ctrl+Space` to capture the active window and paste it into Codex Desktop.
+- Press `Shift+Space` to capture the active window and paste it into Codex Desktop.
 - Type `/dd ...`, `$dd ...`, `/ㅇㅇ ...`, `$ㅇㅇ ...`, `dd ...`, or `ㅇㅇ ...` to send the latest clipboard content to Codex or Claude Code.
 
 GitHub URL:
@@ -35,7 +35,7 @@ The installer does four things:
 - Registers this skill as `$dd` and `$ㅇㅇ`.
 - Installs `/dd` and `/ㅇㅇ` as Codex prompts.
 - Installs `dd` and `ㅇㅇ` as terminal commands.
-- Installs and starts the Windows `Ctrl+Space` AppShot hotkey listener.
+- Installs and starts the Windows `Shift+Space` AppShot hotkey listener.
 
 No separate AppShot skill call is required.
 
@@ -46,7 +46,7 @@ Open Codex Desktop and paste this message:
 ```text
 Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows.
 Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md.
-After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.
+After install, Shift+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.
 ```
 
 Start a fresh Codex thread after install.
@@ -56,7 +56,7 @@ Start a fresh Codex thread after install.
 Run:
 
 ```powershell
-codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md. After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.'
+codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md. After install, Shift+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.'
 ```
 
 ## Update
@@ -73,10 +73,10 @@ npm --prefix "$HOME\.codex\skills\dd" run install-user
 Press:
 
 ```text
-Ctrl+Space
+Shift+Space
 ```
 
-There is no `$appshot` or `/appshot` skill call. AppShot is just the installed hotkey.
+AppShot is only the installed hotkey; it is not a chat command.
 
 Expected behavior:
 
@@ -130,18 +130,18 @@ Claude Code only when explicitly wanted:
 dd "Use this context in Claude Code" --agent claude
 ```
 
-Normal AppShot use is always `Ctrl+Space`; the commands below are only for reinstalling or diagnosing the hotkey.
+Normal AppShot use is always `Shift+Space`; the commands below are only for reinstalling or diagnosing the hotkey.
 
 Reinstall the hotkey:
 
 ```powershell
-dd appshot hotkey install --key control+space --app Codex
+dd appshot hotkey install --key shift+space --app Codex
 ```
 
 Run the hotkey listener in the foreground:
 
 ```powershell
-dd appshot hotkey run --key control+space --app Codex
+dd appshot hotkey run --key shift+space --app Codex
 ```
 
 ## Smoke Test

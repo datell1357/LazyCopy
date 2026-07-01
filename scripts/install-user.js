@@ -52,11 +52,11 @@ if (process.platform === "win32") {
     "hotkey",
     "install",
     "--key",
-    "control+space",
+    "shift+space",
     "--app",
     "Codex",
   ]);
-  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, and Ctrl+Space AppShot.");
+  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, and Shift+Space AppShot.");
 } else {
-  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ. Ctrl+Space AppShot auto-install is Windows-only.");
+  console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.");
 }

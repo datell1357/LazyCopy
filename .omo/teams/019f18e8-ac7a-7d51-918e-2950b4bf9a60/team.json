@@ -1,0 +1,180 @@
+{
+  "schemaVersion": 2,
+  "teamId": "aa3d824b-7b97-4c5f-a9aa-32aed0ed1ba5",
+  "teamName": "shift-space-no-resize-appshot",
+  "sessionName": "LazyCopy Shift Space No Resize",
+  "sessionId": "019f18e8-ac7a-7d51-918e-2950b4bf9a60",
+  "threadTitleConvention": "[shift-space-no-resize-appshot] <member name>",
+  "status": "archived",
+  "createdAt": "2026-07-01T04:47:42.589Z",
+  "updatedAt": "2026-07-01T06:27:57.301Z",
+  "archivedAt": "2026-07-01T06:27:57.301Z",
+  "leader": {
+    "kind": "main-session",
+    "sessionId": "019f18e8-ac7a-7d51-918e-2950b4bf9a60"
+  },
+  "communication": {
+    "memberLanguage": "english",
+    "replyToUserInUserLanguage": true
+  },
+  "worktree": {
+    "enabled": false,
+    "baseBranch": "main",
+    "root": "/Users/yeoreum/Documents/LazyCopy/.omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/worktrees"
+  },
+  "paths": {
+    "dir": "/Users/yeoreum/Documents/LazyCopy/.omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60",
+    "team": "/Users/yeoreum/Documents/LazyCopy/.omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/team.json",
+    "guide": "/Users/yeoreum/Documents/LazyCopy/.omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/guide.md",
+    "artifacts": "/Users/yeoreum/Documents/LazyCopy/.omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/artifacts"
+  },
+  "members": [
+    {
+      "id": "A",
+      "name": "appshot-implementation",
+      "focus": "Todo 1: Shift+Space default, no Windows restore call, code/docs/tests/evidence",
+      "lens": "area",
+      "deliverable": "Implement Todo 1 from .omo/plans/shift-space-no-resize-appshot-work.md with RED/GREEN evidence under .omo/evidence/shift-space-no-resize-appshot-work/; do not change dd behavior or add AppShot skill commands.",
+      "threadId": "019f1c01-e056-7bd3-a4ea-ef8889d4fc81",
+      "threadTitle": "[shift-space-no-resize-appshot] appshot-implementation",
+      "cwd": "/Users/yeoreum/Documents/LazyCopy",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    },
+    {
+      "id": "B",
+      "name": "surface-verifier",
+      "focus": "Todo 2 and final checks: CLI surface, no-restore invariant, scope fidelity, cleanup receipts",
+      "lens": "perspective",
+      "deliverable": "Verify Todo 2 from .omo/plans/shift-space-no-resize-appshot-work.md after member A reports complete; write artifact summary under .omo/teams/019f18e8-ac7a-7d51-918e-2950b4bf9a60/artifacts/B-surface-verifier-report.md; do not edit product files unless instructed after a blocker.",
+      "threadId": "019f1c01-ea41-75c0-86d9-9234fa06d009",
+      "threadTitle": "[shift-space-no-resize-appshot] surface-verifier",
+      "cwd": "/Users/yeoreum/Documents/LazyCopy",
+      "worktree": {
+        "path": null,
+        "branch": null
+      },
+      "status": "archived"
+    }
+  ],
+  "log": [
+    {
+      "ts": "2026-07-01T04:47:42.589Z",
+      "event": "created",
+      "detail": "team shift-space-no-resize-appshot"
+    },
+    {
+      "ts": "2026-07-01T04:48:07.368Z",
+      "event": "add-member",
+      "detail": "member A (area): Todo 1: Shift+Space default, no Windows restore call, code/docs/tests/evidence"
+    },
+    {
+      "ts": "2026-07-01T04:48:07.414Z",
+      "event": "add-member",
+      "detail": "member B (perspective): Todo 2 and final checks: CLI surface, no-restore invariant, scope fidelity, cleanup receipts"
+    },
+    {
+      "ts": "2026-07-01T04:48:52.344Z",
+      "event": "bind-thread",
+      "detail": "member A -> thread 019f1c01-e056-7bd3-a4ea-ef8889d4fc81"
+    },
+    {
+      "ts": "2026-07-01T04:48:52.380Z",
+      "event": "bind-thread",
+      "detail": "member B -> thread 019f1c01-ea41-75c0-86d9-9234fa06d009"
+    },
+    {
+      "ts": "2026-07-01T04:49:45.290Z",
+      "event": "set-status",
+      "detail": "member A -> active: WORKING: failing-first evidence for Todo 1"
+    },
+    {
+      "ts": "2026-07-01T04:49:54.227Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: gated on A DoneClaim for Todo 2 verification"
+    },
+    {
+      "ts": "2026-07-01T04:51:41.125Z",
+      "event": "set-status",
+      "detail": "member A -> active: WORKING: RED evidence captured; applying scoped Todo 1 product/docs edits"
+    },
+    {
+      "ts": "2026-07-01T04:52:21.836Z",
+      "event": "set-status",
+      "detail": "member A -> active: WORKING: scoped edits complete; running full Todo 1 verification/evidence"
+    },
+    {
+      "ts": "2026-07-01T04:52:21.862Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: still gated; no Todo 2 execution until A DoneClaim"
+    },
+    {
+      "ts": "2026-07-01T04:54:38.983Z",
+      "event": "set-status",
+      "detail": "member A -> reported: DONECLAIM: Todo 1 complete; shift+space default, explicit control+space custom key, no ShowWindowAsync restore; awaiting B verification"
+    },
+    {
+      "ts": "2026-07-01T04:54:39.018Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: Todo 2 independent verification started from fresh shell"
+    },
+    {
+      "ts": "2026-07-01T04:56:12.193Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: scope evidence command failed with rg_exit=2; correcting evidence-only forbidden trigger scan"
+    },
+    {
+      "ts": "2026-07-01T04:58:04.954Z",
+      "event": "set-status",
+      "detail": "member A -> active: FOLLOW-UP: remove README literal /appshot/ negative examples; rerun scoped evidence"
+    },
+    {
+      "ts": "2026-07-01T04:58:06.321Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: scope scan found README negative literal triggers; waiting for A doc cleanup before final report"
+    },
+    {
+      "ts": "2026-07-01T05:01:21.421Z",
+      "event": "set-status",
+      "detail": "member A -> reported: DONECLAIM UPDATE: README-only literal trigger cleanup complete; follow-up tests/diff/doc scan pass"
+    },
+    {
+      "ts": "2026-07-01T05:02:55.376Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: final README-followup scope scan and diff-check rerun"
+    },
+    {
+      "ts": "2026-07-01T05:04:04.603Z",
+      "event": "set-status",
+      "detail": "member B -> reported: DONECLAIM UPDATE: final README follow-up checks passed; report updated"
+    },
+    {
+      "ts": "2026-07-01T05:11:14.864Z",
+      "event": "set-status",
+      "detail": "member A -> active: FINAL FIX: align scripts/windows-hotkey.ps1 raw default with shift+space and rerun focused evidence"
+    },
+    {
+      "ts": "2026-07-01T05:14:36.849Z",
+      "event": "set-status",
+      "detail": "member A -> reported: DONECLAIM UPDATE: windows-hotkey raw helper default aligned to shift+space; npm test 20/20; scan PASS"
+    },
+    {
+      "ts": "2026-07-01T05:15:23.121Z",
+      "event": "set-status",
+      "detail": "member B -> active: WORKING: final full reverify including scripts/windows-hotkey.ps1 and npm test 20/20 surface"
+    },
+    {
+      "ts": "2026-07-01T05:21:36.436Z",
+      "event": "set-status",
+      "detail": "member B -> reported: DONECLAIM UPDATE final reverify passed after Windows direct helper default fix; report and task-2 evidence refreshed."
+    },
+    {
+      "ts": "2026-07-01T06:27:57.301Z",
+      "event": "archive",
+      "detail": "team archived; all members closed"
+    }
+  ]
+}
