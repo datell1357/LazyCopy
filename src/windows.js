@@ -175,7 +175,7 @@ async function installHotkey(command, options = {}) {
     return { startupPath, started: false, logPath };
   }
 
-  const child = spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", "call", startupPath], {
+  const child = spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `call "${startupPath.replace(/"/g, '""')}"`], {
     detached: true,
     stdio: "ignore",
     windowsHide: true,
