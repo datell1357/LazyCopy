@@ -139,13 +139,24 @@ function quotePowerShellString(arg) {
   return `'${String(arg).replace(/'/g, "''")}'`;
 }
 
+function quoteWindowsProcessArgument(arg) {
+  const value = String(arg);
+  if (value.length === 0) {
+    return '""';
+  }
+  if (!/[\s"]/.test(value)) {
+    return value;
+  }
+  return `"${value.replace(/"/g, '\\"')}"`;
+}
+
 function hiddenHotkeyStartupCommand(command, options = {}) {
   const powershell = options.powershell ?? powershellBin();
   const filePath = quotePowerShellString(command[0]);
-  const args = command.slice(1).map(quotePowerShellString).join(", ");
+  const argumentLine = command.slice(1).map(quoteWindowsProcessArgument).join(" ");
   const script = [
     "$ErrorActionPreference = 'Stop'",
-    `Start-Process -WindowStyle Hidden -FilePath ${filePath} -ArgumentList @(${args})`,
+    `Start-Process -WindowStyle Hidden -FilePath ${filePath} -ArgumentList ${quotePowerShellString(argumentLine)}`,
   ].join("\r\n");
   const encoded = Buffer.from(script, "utf16le").toString("base64");
   return [

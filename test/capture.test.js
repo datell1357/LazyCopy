@@ -951,6 +951,10 @@ test("Windows hotkey install starts the written Startup launcher", async () => {
   const source = await fs.readFile(path.join(repoRoot, "src", "windows.js"), "utf8");
 
   assert.match(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
+  assert.match(source, /function quoteWindowsProcessArgument/);
+  assert.match(source, /const argumentLine = command\.slice\(1\)\.map\(quoteWindowsProcessArgument\)\.join\(" "\)/);
+  assert.match(source, /-ArgumentList \$\{quotePowerShellString\(argumentLine\)\}/);
+  assert.doesNotMatch(source, /-ArgumentList @\(\$\{args\}\)/);
   assert.doesNotMatch(source, /spawn\(command\[0\], command\.slice\(1\)/);
 });
 
