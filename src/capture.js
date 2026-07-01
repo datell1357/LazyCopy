@@ -140,10 +140,6 @@ async function createTextArtifact(options) {
   const manifestPath = path.join(artifactDir, "manifest.json");
   const textBytes = Buffer.byteLength(text, "utf8");
   const textSha256 = crypto.createHash("sha256").update(text).digest("hex");
-  const previewLimit = options.previewLimit ?? 4000;
-  const preview =
-    text.length > previewLimit ? `${text.slice(0, previewLimit)}\n[truncated]` : text;
-
   await fs.mkdir(artifactDir, { recursive: true });
   await writeFileAtomic(textPath, text);
   await writeFileAtomic(
@@ -158,7 +154,7 @@ async function createTextArtifact(options) {
         textPath: "clipboard.txt",
         textSha256,
         textBytes,
-        textPreview: preview,
+        textPreview: "<clipboard-text:redacted>",
         codexAttach: {
           method: "prompt-text",
           path: textPath,

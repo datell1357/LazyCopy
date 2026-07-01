@@ -129,6 +129,7 @@ test("createTextArtifact writes clipboard text for prompt use", async (t) => {
   assert.equal(await fs.readFile(result.textPath, "utf8"), "hello from clipboard");
   assert.equal(manifest.kind, "lazycopy-clipboard");
   assert.equal(manifest.textPath, "clipboard.txt");
+  assert.equal(manifest.textPreview, "<clipboard-text:redacted>");
   assert.equal(manifest.codexAttach.method, "prompt-text");
   assert.equal(manifest.textSha256, crypto.createHash("sha256").update("hello from clipboard").digest("hex"));
 });
@@ -184,6 +185,9 @@ test("dd codex dry-run builds resume argv from clipboard text", async (t) => {
   assert.deepEqual(payload.dd.args.slice(0, 2), ["resume", "--last"]);
   assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
   assert.equal(JSON.stringify(payload).includes("clipboard text"), false);
+  const manifest = await fs.readFile(payload.artifact.manifestPath, "utf8");
+  assert.equal(manifest.includes("clipboard text"), false);
+  assert.match(manifest, /<clipboard-text:redacted>/);
   assert.equal(await fs.readFile(payload.artifact.textPath, "utf8"), "clipboard text");
 });
 
@@ -219,6 +223,9 @@ test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   assert.equal(payload.dd.args[2], "--");
   assert.equal(payload.dd.args[3], "<prompt-with-clipboard-text:redacted>");
   assert.equal(JSON.stringify(payload).includes("clipboard text"), false);
+  const manifest = await fs.readFile(payload.artifact.manifestPath, "utf8");
+  assert.equal(manifest.includes("clipboard text"), false);
+  assert.match(manifest, /<clipboard-text:redacted>/);
 });
 
 test("appshot desktop captures the front window, copies it, targets Codex, and cleans up", async (t) => {
