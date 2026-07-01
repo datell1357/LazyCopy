@@ -53,7 +53,7 @@ The installer does five things:
 - Installs `/dd` and `/ㅇㅇ` as Codex prompts.
 - Installs `/dd` and `/ㅇㅇ` as Claude Code commands.
 - Installs `dd` and `ㅇㅇ` as terminal commands.
-- Installs and starts the Windows `Shift+Space` AppShot hotkey listener.
+- Installs and starts the Windows `Shift+Space` AppShot watcher.
 
 No separate AppShot skill call is required.
 
@@ -98,9 +98,9 @@ Expected behavior:
 - LazyCopy pastes the image into the Codex input.
 - LazyCopy does not submit the message.
 
-The normal Windows hotkey path performs capture, clipboard update, and paste in one PowerShell helper process. The installer starts the listener in the background and writes a hidden Startup launcher so no PowerShell or cmd window should remain open after install.
+The installer writes a hidden Startup launcher for a small watcher. The watcher stays running, but it starts the hotkey listener only while Codex Desktop has a visible window.
 
-Codex Desktop must already be running with a visible window for the paste step. If it is closed, the hotkey listener still fires, but the paste command cannot find a Codex window.
+When Codex is visible, pressing `Shift+Space` performs capture, clipboard update, and paste in one PowerShell helper process. When Codex is closed, LazyCopy stops its listener so the hotkey is not held by AppShot.
 
 If `Shift+Space` appears silent, run the listener in the foreground:
 
@@ -108,13 +108,13 @@ If `Shift+Space` appears silent, run the listener in the foreground:
 dd appshot hotkey run --key shift+space --app Codex
 ```
 
-It should print `LazyCopy hotkey listening: shift+space`. Registration failures and key presses are also written to:
+It should print `LazyCopy hotkey listening: shift+space`. Watcher decisions, registration failures, and key presses are also written to:
 
 ```text
 %LOCALAPPDATA%\LazyCopy\appshot-hotkey.log
 ```
 
-If the hotkey worked earlier but later becomes silent, check this log for `listener-stop`, `listener-failed`, or `command-launch-failed`, then reinstall the hotkey to restart the background listener.
+If the hotkey worked earlier but later becomes silent, check this log for `watcher-start`, `codex-visible`, `codex-hidden`, `listener-started`, `listener-exited`, `listener-restart`, `listener-stop-requested`, `listener-failed`, or `command-launch-failed`, then reinstall the hotkey to restart the watcher. An old direct listener from a previous install may keep the key until reinstall or restart.
 
 ### dd
 
@@ -202,7 +202,7 @@ Claude Code only when explicitly wanted:
 dd "Use this context in Claude Code" --agent claude
 ```
 
-Normal AppShot use is always `Shift+Space`; the commands below are only for reinstalling or diagnosing the hotkey.
+Normal AppShot use is always `Shift+Space`; the commands below are only for reinstalling the watcher or diagnosing the hotkey.
 
 Reinstall the hotkey:
 
@@ -210,7 +210,7 @@ Reinstall the hotkey:
 dd appshot hotkey install --key shift+space --app Codex
 ```
 
-Run the hotkey listener in the foreground:
+Run the hotkey listener directly in the foreground:
 
 ```powershell
 dd appshot hotkey run --key shift+space --app Codex
