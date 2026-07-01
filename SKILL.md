@@ -16,13 +16,19 @@ Do not require the user to mention LazyCopy. Do not ask the user for CLI flags u
 
 ## Default Behavior
 
-Use Codex by default:
+On Codex surfaces, use Codex by default:
 
 ```sh
 dd "<user message>"
 ```
 
-Use Claude Code only when the user explicitly asks for Claude:
+Inside Claude Code CLI, `/dd` and `/ㅇㅇ` are installed as Claude slash commands. They should capture the clipboard into the current Claude session through:
+
+```sh
+dd clipboard --json
+```
+
+For direct terminal use that should launch Claude Code, use Claude only when the user explicitly asks for Claude:
 
 ```sh
 dd "<user message>" --agent claude

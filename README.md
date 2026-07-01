@@ -34,10 +34,11 @@ if (Test-Path "$dir\.git") {
 npm --prefix $dir run install-user
 ```
 
-The installer does four things:
+The installer does five things:
 
 - Registers this skill as `$dd` and `$ㅇㅇ`.
 - Installs `/dd` and `/ㅇㅇ` as Codex prompts.
+- Installs `/dd` and `/ㅇㅇ` as Claude Code commands.
 - Installs `dd` and `ㅇㅇ` as terminal commands.
 - Installs and starts the Windows `Shift+Space` AppShot hotkey listener.
 
@@ -49,8 +50,8 @@ Open Codex Desktop and paste this message:
 
 ```text
 Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows.
-Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md.
-After install, Shift+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.
+Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, ~/.codex/prompts/ㅇㅇ.md, ~/.claude/commands/dd.md, and ~/.claude/commands/ㅇㅇ.md.
+After install, Shift+Space should be the AppShot hotkey and dd should be available as Codex /dd, $dd, /ㅇㅇ, $ㅇㅇ; Claude Code /dd, /ㅇㅇ; and terminal dd, ㅇㅇ.
 ```
 
 Start a fresh Codex thread after install.
@@ -58,7 +59,7 @@ Start a fresh Codex thread after install.
 ### Install from Codex CLI
 
 ```powershell
-codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, and ~/.codex/prompts/ㅇㅇ.md. After install, Shift+Space should be the AppShot hotkey and dd should be available as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, and ㅇㅇ.'
+codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, ~/.codex/prompts/ㅇㅇ.md, ~/.claude/commands/dd.md, and ~/.claude/commands/ㅇㅇ.md. After install, Shift+Space should be the AppShot hotkey and dd should be available as Codex /dd, $dd, /ㅇㅇ, $ㅇㅇ; Claude Code /dd, /ㅇㅇ; and terminal dd, ㅇㅇ.'
 ```
 
 ---
@@ -102,8 +103,17 @@ Expected behavior:
 
 - LazyCopy reads the latest clipboard image first, then falls back to clipboard text.
 - LazyCopy sends image context to Codex CLI with the `-i` image attachment path by default.
-- LazyCopy uses Claude Code only when the message explicitly asks for Claude.
+- On Codex surfaces, LazyCopy uses Claude Code only when the message explicitly asks for Claude.
 - The user does not need to pass `--agent`, `--prompt`, `--prefer`, or other flags.
+
+In Claude Code CLI, use:
+
+```text
+/dd 이 클립보드 내용을 보고 이어서 작업해줘
+/ㅇㅇ 이 클립보드 내용을 보고 이어서 작업해줘
+```
+
+Claude Code commands capture the clipboard into the current Claude session. They do not require `--agent claude`.
 
 ---
 
@@ -114,7 +124,8 @@ If you need to... | Use this
 Show Codex the current app window | Press `Shift+Space`
 Ask about the latest clipboard image | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
 Ask about copied text without flooding chat | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
-Use Claude Code instead of Codex | Add an explicit Claude request, or run `dd "..." --agent claude`
+Use Claude Code CLI | Type `/dd ...` or `/ㅇㅇ ...` inside Claude Code
+Launch Claude from a normal terminal | Run `dd "..." --agent claude`
 Reinstall or diagnose the hotkey | Use `dd appshot hotkey ...`
 
 ---
@@ -182,6 +193,8 @@ dd --help
 npm --prefix "$HOME\.codex\skills\dd" test
 Test-Path "$HOME\.codex\prompts\dd.md"
 Test-Path "$HOME\.codex\prompts\ㅇㅇ.md"
+Test-Path "$HOME\.claude\commands\dd.md"
+Test-Path "$HOME\.claude\commands\ㅇㅇ.md"
 ```
 
 Then verify `dd` privacy behavior:

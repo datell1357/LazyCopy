@@ -289,6 +289,27 @@ test("package exposes short terminal commands without lazycopy prefix", async ()
   assert.equal(packageJson.bin["ㅇㅇ"], "./bin/ㅇㅇ.js");
 });
 
+test("installer exposes Claude Code slash commands for dd", async () => {
+  const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
+  assert.match(installer, /\.claude/);
+  assert.match(installer, /commands/);
+  assert.match(installer, /claudeCommandTarget/);
+  assert.match(installer, /claudeShorthandCommandTarget/);
+
+  for (const commandName of ["dd", "ㅇㅇ"]) {
+    const command = await fs.readFile(
+      path.join(repoRoot, "commands", `${commandName}.md`),
+      "utf8",
+    );
+    assert.match(command, new RegExp(`name: ${commandName}`));
+    assert.match(command, /allowed-tools:/);
+    assert.match(command, /Bash/);
+    assert.match(command, /Read/);
+    assert.match(command, /dd clipboard --json/);
+    assert.doesNotMatch(command, /--agent claude/);
+  }
+});
+
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
