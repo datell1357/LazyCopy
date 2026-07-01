@@ -24,6 +24,10 @@ function Write-LazyCopyLog([string]$Message) {
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
 }
 
+function Get-LazyCopyTickMilliseconds {
+  return [int64]([Math]::Floor(([double][System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0) / [double][System.Diagnostics.Stopwatch]::Frequency))
+}
+
 Write-LazyCopyLog "start key=$Key"
 
 function ConvertFrom-LazyCopyCommandBase64([string]$Value) {
@@ -235,7 +239,7 @@ function Start-LazyCopyHotkeyCommand {
 }
 
 function Invoke-LazyCopyHotkeyFire([string]$Source) {
-  $now = [Environment]::TickCount64
+  $now = Get-LazyCopyTickMilliseconds
   $elapsed = $now - $script:LastHotkeyFireTick
   if ($script:LastHotkeyFireTick -ne 0 -and $elapsed -lt $HotkeyCooldownMilliseconds) {
     Write-LazyCopyLog "hotkey-suppressed key=$Key source=$Source elapsed=$elapsed"

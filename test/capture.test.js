@@ -1224,6 +1224,10 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
   assert.match(script, /\[string\]\$CommandBase64/);
   assert.match(script, /ConvertFrom-LazyCopyCommandBase64/);
   assert.match(script, /invalid-command-base64/);
+  assert.match(script, /Get-LazyCopyTickMilliseconds/);
+  assert.match(script, /Stopwatch\]::GetTimestamp/);
+  assert.match(script, /\$now = Get-LazyCopyTickMilliseconds/);
+  assert.doesNotMatch(script, /TickCount64/);
   assert.match(script, /LazyCopy\\appshot-hotkey\.log/);
   assert.match(script, /GetAsyncKeyState/);
   assert.match(script, /WH_KEYBOARD_LL/);
@@ -1275,6 +1279,22 @@ test("Windows hotkey helper keeps listening when an appshot launch fails", async
   assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "registered"/);
   assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "keyboard-hook"/);
   assert.doesNotMatch(messageLoopHotkeyBlock, /Start-Process/);
+});
+
+test("Windows PowerShell timing avoids TickCount64 for Windows PowerShell compatibility", async () => {
+  const scriptNames = [
+    "windows-hotkey.ps1",
+    "windows-appshot-watch.ps1",
+    "windows-appshot-fast.ps1",
+    "windows-paste-into-app.ps1",
+  ];
+
+  for (const scriptName of scriptNames) {
+    const script = await fs.readFile(path.join(repoRoot, "scripts", scriptName), "utf8");
+    assert.match(script, /Get-LazyCopyTickMilliseconds/);
+    assert.match(script, /Stopwatch\]::GetTimestamp/);
+    assert.doesNotMatch(script, /TickCount64/);
+  }
 });
 
 test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces", async () => {

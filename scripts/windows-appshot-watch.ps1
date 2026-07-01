@@ -36,6 +36,10 @@ function Write-LazyCopyLog([string]$Message) {
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
 }
 
+function Get-LazyCopyTickMilliseconds {
+  return [int64]([Math]::Floor(([double][System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0) / [double][System.Diagnostics.Stopwatch]::Frequency))
+}
+
 function ConvertFrom-LazyCopyCommandBase64([string]$Value, [string]$Label) {
   try {
     $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
@@ -128,7 +132,7 @@ function Start-LazyCopySelfUpdate {
     return
   }
 
-  $now = [Environment]::TickCount64
+  $now = Get-LazyCopyTickMilliseconds
   if ($script:LastUpdateCheckTick -ne 0) {
     $elapsedSeconds = [Math]::Floor(($now - $script:LastUpdateCheckTick) / 1000)
     if ($elapsedSeconds -lt $UpdateCheckMinSeconds) {

@@ -33,6 +33,10 @@ public static class LazyCopyWin32Paste {
 }
 "@
 
+function Get-LazyCopyTickMilliseconds {
+  return [int64]([Math]::Floor(([double][System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0) / [double][System.Diagnostics.Stopwatch]::Frequency))
+}
+
 function Test-LazyCopyForegroundWindow {
   param(
     [IntPtr]$Handle
@@ -75,8 +79,8 @@ function Set-LazyCopyForegroundWindow {
     }
   }
 
-  $deadline = [Environment]::TickCount64 + 500
-  while ([Environment]::TickCount64 -lt $deadline) {
+  $deadline = (Get-LazyCopyTickMilliseconds) + 500
+  while ((Get-LazyCopyTickMilliseconds) -lt $deadline) {
     if (Test-LazyCopyForegroundWindow -Handle $Handle) {
       return $true
     }
