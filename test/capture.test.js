@@ -191,6 +191,46 @@ test("dd codex dry-run builds resume argv from clipboard text", async (t) => {
   assert.equal(await fs.readFile(payload.artifact.textPath, "utf8"), "clipboard text");
 });
 
+test("dd accepts a plain message without flags", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["dd", "Use this clipboard naturally", "--dry-run", "--prefer", "text", "--output-root", outputRoot],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.dd.agent, "codex");
+  assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
+  assert.equal(JSON.stringify(payload).includes("Use this clipboard naturally"), false);
+});
+
+test("Korean shorthand ㅇㅇ maps to dd", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["ㅇㅇ", "이 클립보드를 보고 이어서 작업해줘", "--dry-run", "--prefer", "text", "--output-root", outputRoot],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.dd.agent, "codex");
+  assert.equal(payload.dd.command, "codex");
+  assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
+});
+
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
@@ -298,6 +338,36 @@ test("appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot", 
   assert.match(payload.plist, /run/);
 });
 
+test("Windows appshot hotkey install dry-run emits a startup listener command", async (t) => {
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "install", "--app", "Codex", "--dry-run", "--json"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        platform: "win32",
+        startupShortcutPath: () => "C:\\Users\\tester\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.match(payload.startupPath, /LazyCopy-AppShot-Hotkey\.cmd$/);
+  assert.deepEqual(payload.command.slice(-7), [
+    "appshot",
+    "hotkey",
+    "run",
+    "--key",
+    "control+space",
+    "--app",
+    "Codex",
+  ]);
+});
+
 test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Ctrl+Space surfaces", async () => {
   const bin = path.join(repoRoot, "bin", "lazycopy.js");
   const help = spawnSync(process.execPath, [bin, "--help"], {
@@ -311,6 +381,7 @@ test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Ctrl+Space surf
   assert.match(help.stdout, /codex/);
   assert.match(help.stdout, /Claude Code/);
   assert.match(help.stdout, /control\+space/);
+  assert.match(help.stdout, /ㅇㅇ/);
   assert.equal(help.stdout.includes(["command", "shift", "l"].join("+")), false);
   assert.equal(help.stdout.includes("--desktop-current"), false);
 });

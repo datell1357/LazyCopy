@@ -7,6 +7,7 @@
     "lazycopy": "./bin/lazycopy.js"
   },
   "scripts": {
+    "install-user": "node scripts/install-user.js",
     "test": "node --test"
   },
   "license": "MIT"

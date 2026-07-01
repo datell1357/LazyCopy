@@ -1,37 +1,43 @@
-# LazyCopy
+# dd
 
-Use LazyCopy when the user wants to send the current window into Codex Desktop or send the latest clipboard content into a CLI agent.
+Use this skill when the user wants to send the latest clipboard content to an AI coding agent.
 
-## What This Skill Does
+Trigger this skill for:
 
-- AppShot captures the current macOS window and can paste it into Codex Desktop.
-- AppShot provides a `Ctrl+Space` global hotkey runner/installer for the desktop flow.
-- dd reads the latest clipboard image or text and packages it for a CLI agent.
-- dd supports separate Codex CLI and Claude Code handoff paths.
+- `$dd <message>`
+- `/dd <message>`
+- `dd <message>`
+- `ㅇㅇ <message>`
+- Korean natural language asking to use the current clipboard as context
 
-## Local CLI
+Do not require the user to mention LazyCopy. Do not ask the user for CLI flags unless they explicitly want to choose an agent.
 
-From this skill directory:
+## Default Behavior
 
-```sh
-node ./bin/lazycopy.js --help
-node ./bin/lazycopy.js appshot desktop --mode active-window --paste-to Codex
-node ./bin/lazycopy.js dd --agent codex --prompt "Use this context"
-node ./bin/lazycopy.js dd --agent claude --prompt "Use this context"
-node ./bin/lazycopy.js appshot hotkey run --key control+space --app Codex
-```
-
-If macOS blocks capture or paste automation, ask the user to grant Screen Recording or Accessibility permission to the terminal/app running LazyCopy.
-
-By default, successful AppShot and dd handoffs delete transient artifacts. Add `--keep` when the user wants to inspect `capture.png`, `clipboard.txt`, or `manifest.json`.
-
-## Install
-
-Copy or link the skill directory into Codex:
+Use Codex by default:
 
 ```sh
-mkdir -p ~/.codex/skills
-ln -s /path/to/LazyCopy ~/.codex/skills/LazyCopy
+lazycopy dd --agent codex --prompt "<user message>"
 ```
 
-Then invoke it in Codex with `$LazyCopy`.
+Use Claude Code only when the user explicitly asks for Claude:
+
+```sh
+lazycopy dd --agent claude --prompt "<user message>"
+```
+
+If the user gives no message, use:
+
+```text
+Use the latest clipboard content as context.
+```
+
+## AppShot
+
+Do not expose AppShot as a skill command. AppShot is installed as the Windows `Ctrl+Space` hotkey and runs without a separate skill invocation.
+
+When the user asks how AppShot works, explain that pressing `Ctrl+Space` captures the current active window and pastes the image into Codex Desktop.
+
+## Privacy
+
+LazyCopy may write transient `clipboard.txt`, `capture.png`, and `manifest.json` files for handoff. JSON output and manifests must not expose raw clipboard text; raw clipboard text belongs only in `clipboard.txt` for the selected agent to read.

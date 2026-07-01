@@ -1,6 +1,9 @@
 # LazyCopy
 
-LazyCopy is a standalone skill and local CLI for moving visual or clipboard context into Codex Desktop, Codex CLI, or Claude Code.
+LazyCopy is a Windows-first Codex skill and local CLI for two quick actions:
+
+- Press `Ctrl+Space` to capture the active window and paste it into Codex Desktop.
+- Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...` to send the latest clipboard content to Codex CLI or Claude Code.
 
 GitHub URL:
 
@@ -8,172 +11,157 @@ GitHub URL:
 https://github.com/datell1357/LazyCopy.git
 ```
 
-It can:
-
-- AppShot: capture the current macOS window, copy the PNG, and paste it into Codex Desktop.
-- AppShot: run a `Ctrl+Space` hotkey that triggers the current-window desktop flow.
-- dd: package the latest clipboard image or text for a CLI agent.
-- dd: send clipboard context to Codex CLI or Claude Code with separate agent adapters.
-
 ## Install From GitHub
 
-Use this when you want `$LazyCopy` inside Codex and the `lazycopy` command in your shell.
+Run this in PowerShell:
 
-```sh
-LAZYCOPY_REPO="https://github.com/datell1357/LazyCopy.git"
-LAZYCOPY_DIR="$HOME/.codex/skills/LazyCopy"
+```powershell
+$repo = "https://github.com/datell1357/LazyCopy.git"
+$dir = "$HOME\.codex\skills\dd"
 
-mkdir -p ~/.codex/skills
+New-Item -ItemType Directory -Force "$HOME\.codex\skills" | Out-Null
 
-if [ -d "$LAZYCOPY_DIR/.git" ]; then
-  git -C "$LAZYCOPY_DIR" pull --ff-only
-else
-  git clone "$LAZYCOPY_REPO" "$LAZYCOPY_DIR"
-fi
+if (Test-Path "$dir\.git") {
+  git -C $dir pull --ff-only
+} else {
+  git clone $repo $dir
+}
 
-npm --prefix "$LAZYCOPY_DIR" link
+npm --prefix $dir run install-user
 ```
 
-Verify the install:
+The installer does three things:
 
-```sh
-lazycopy --help
-ls -l ~/.codex/skills/LazyCopy/SKILL.md
-```
+- Registers this skill as `$dd`.
+- Installs `/dd` as a Codex prompt.
+- Installs and starts the Windows `Ctrl+Space` AppShot hotkey listener.
 
-Then open a new Codex app or CLI session and invoke the skill with:
+No separate AppShot skill call is required.
+
+## Install From Codex Desktop
+
+Open Codex Desktop and paste this message:
 
 ```text
-$LazyCopy
+Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows.
+Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify lazycopy --help and ~/.codex/prompts/dd.md.
+After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd and $dd.
 ```
 
-## Install From The Codex App
-
-Open Codex Desktop, start a new thread, and paste this request:
-
-```text
-Install LazyCopy from https://github.com/datell1357/LazyCopy.git.
-Clone or update it at ~/.codex/skills/LazyCopy, run npm --prefix ~/.codex/skills/LazyCopy link, then verify lazycopy --help and ~/.codex/skills/LazyCopy/SKILL.md.
-Do not modify any other skill directory.
-```
-
-After it finishes, start a fresh Codex thread and use:
-
-```text
-$LazyCopy
-```
+Start a fresh Codex thread after install.
 
 ## Install From Codex CLI
 
-You can ask Codex CLI to do the same install from the GitHub URL:
+Run:
 
-```sh
-codex exec -C "$HOME" --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git. Clone or update it at ~/.codex/skills/LazyCopy, run npm --prefix ~/.codex/skills/LazyCopy link, then verify lazycopy --help and ~/.codex/skills/LazyCopy/SKILL.md. Do not modify any other skill directory.'
+```powershell
+codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify lazycopy --help and ~/.codex/prompts/dd.md. After install, Ctrl+Space should be the AppShot hotkey and dd should be available as /dd and $dd.'
 ```
-
-For a direct terminal install without asking an agent, use the commands in [Install From GitHub](#install-from-github).
 
 ## Update
 
-```sh
-git -C ~/.codex/skills/LazyCopy pull --ff-only
-npm --prefix ~/.codex/skills/LazyCopy link
-lazycopy --help
+```powershell
+git -C "$HOME\.codex\skills\dd" pull --ff-only
+npm --prefix "$HOME\.codex\skills\dd" run install-user
 ```
 
-## macOS Permissions
+## User-Facing Usage
 
-AppShot needs macOS permissions for the terminal or Codex host app that launches `lazycopy`:
+### AppShot
 
-- Screen Recording: required to capture the current window.
-- Accessibility: required to focus Codex Desktop and paste the image.
+Press:
 
-Grant them in System Settings -> Privacy & Security, then rerun the command that failed.
-
-## CLI Use
-
-After installation, use `lazycopy` from any directory. From a local checkout you can also run `node ./bin/lazycopy.js`.
-
-Capture the current front window and paste it into Codex Desktop:
-
-```sh
-lazycopy appshot desktop --mode active-window --paste-to Codex --json
+```text
+Ctrl+Space
 ```
 
-Keep the AppShot capture artifact after a successful handoff:
+There is no `$appshot` or `/appshot` skill call. AppShot is just the installed hotkey.
 
-```sh
-lazycopy appshot desktop --keep --json
+Expected behavior:
+
+- LazyCopy captures the active Windows window.
+- LazyCopy copies the capture as a PNG.
+- LazyCopy focuses Codex Desktop.
+- LazyCopy pastes the image into the Codex input.
+- LazyCopy does not submit the message.
+
+### dd
+
+Use any of these in Codex:
+
+```text
+/dd 이 클립보드 내용을 보고 이어서 작업해줘
+$dd 이 클립보드 내용을 보고 이어서 작업해줘
+dd 이 클립보드 내용을 보고 이어서 작업해줘
+ㅇㅇ 이 클립보드 내용을 보고 이어서 작업해줘
 ```
 
-Send the latest clipboard content to Codex CLI:
+Expected behavior:
 
-```sh
-lazycopy dd --agent codex --prompt "Use this context"
+- LazyCopy reads the latest clipboard image or text.
+- LazyCopy sends that context to Codex CLI by default.
+- LazyCopy uses Claude Code only when the message explicitly asks for Claude.
+- The user does not need to pass `--agent`, `--prompt`, `--prefer`, or other flags.
+
+## Direct CLI Usage
+
+The simple forms are:
+
+```powershell
+lazycopy dd "이 클립보드 내용을 보고 이어서 작업해줘"
+lazycopy ㅇㅇ "이 클립보드 내용을 보고 이어서 작업해줘"
 ```
 
-Send the latest clipboard content to Claude Code:
+Dry-run without launching an agent:
 
-```sh
-lazycopy dd --agent claude --prompt "Use this context"
+```powershell
+Set-Clipboard "LazyCopy dd smoke test"
+lazycopy dd "Use this context" --dry-run --prefer text --json
 ```
 
-Run a global hotkey until the process exits:
+Claude Code only when explicitly wanted:
 
-```sh
-lazycopy appshot hotkey run --key control+space --app Codex
+```powershell
+lazycopy dd "Use this context in Claude Code" --agent claude
 ```
 
-Install the hotkey as a LaunchAgent:
+Normal AppShot use is always `Ctrl+Space`; the commands below are only for reinstalling or diagnosing the hotkey.
 
-```sh
+Reinstall the hotkey:
+
+```powershell
 lazycopy appshot hotkey install --key control+space --app Codex
 ```
 
-By default, AppShot and dd delete transient artifacts after a successful handoff. Pass `--keep` when you want to preserve `capture.png`, `clipboard.txt`, and `manifest.json` for debugging.
+Run the hotkey listener in the foreground:
+
+```powershell
+lazycopy appshot hotkey run --key control+space --app Codex
+```
 
 ## Smoke Test
 
-Run these after install:
-
-```sh
+```powershell
 lazycopy --help
-npm --prefix ~/.codex/skills/LazyCopy test
+npm --prefix "$HOME\.codex\skills\dd" test
+Test-Path "$HOME\.codex\prompts\dd.md"
 ```
 
-Test dd without launching an agent:
+Then verify dd privacy behavior:
 
-```sh
-printf 'LazyCopy dd smoke test' | pbcopy
-lazycopy dd --agent codex --dry-run --prefer text --prompt "Use this context" --json
-lazycopy dd --agent claude --dry-run --prefer text --prompt "Use this context" --json
+```powershell
+Set-Clipboard "LazyCopy private clipboard smoke test"
+lazycopy dd "Use this context" --dry-run --prefer text --json
 ```
 
 Expected dd dry-run behavior:
 
 - `dd.args` contains `<prompt-with-clipboard-text:redacted>`.
-- JSON output and `manifest.json` do not contain the raw clipboard text.
-- The artifact `clipboard.txt` keeps the raw clipboard text so the selected agent can read it.
+- JSON output and `manifest.json` do not contain raw clipboard text.
+- The artifact `clipboard.txt` keeps raw clipboard text so the selected agent can read it.
 
-Test AppShot paste into Codex Desktop:
+## Windows Notes
 
-```sh
-lazycopy appshot desktop --mode active-window --paste-to Codex --json
-```
+LazyCopy is intended for Windows 10 or Windows 11 with Git, Node.js, Codex CLI, and Codex Desktop installed.
 
-Expected AppShot behavior:
-
-- Codex Desktop is focused.
-- The current-window PNG is pasted into the input.
-- LazyCopy does not submit the Codex message.
-- The temporary capture artifact is deleted unless `--keep` is passed.
-
-Test the hotkey foreground listener:
-
-```sh
-lazycopy appshot hotkey run --key control+space --app Codex
-```
-
-Press `Ctrl+Space` to trigger the AppShot desktop flow. Press `Ctrl+C` in the terminal to stop the listener.
-
-If macOS uses `Ctrl+Space` for input-source switching, disable that shortcut in System Settings -> Keyboard -> Keyboard Shortcuts -> Input Sources, or install LazyCopy with another key such as `control+option+l`.
+The Windows implementation uses PowerShell with `-ExecutionPolicy Bypass` for local helper scripts.

@@ -9,21 +9,24 @@ const {
   DEFAULT_OUTPUT_ROOT,
 } = require("./capture");
 const { LazyCopyError } = require("./errors");
-const macos = require("./macos");
+const platformSystem = require("./platform");
 
 const DEFAULT_HOTKEY = "control+space";
 const VALID_AGENTS = new Set(["codex", "claude"]);
+const DD_COMMAND_ALIASES = new Set(["dd", "ㅇㅇ"]);
 
 const usage = `Usage:
   lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
   lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]
   lazycopy appshot hotkey run [--key control+space] [--app Codex]
   lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]
-  lazycopy dd --agent codex|claude [--prefer image|text] [--prompt <text>] [--dry-run] [--keep]
+  lazycopy dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
+  lazycopy ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
 
 Commands:
   appshot    Capture the current window and hand it to Codex Desktop.
   dd         Package the latest clipboard image or text for Codex CLI or Claude Code.
+  ㅇㅇ       Same as dd for Korean natural-language use.
 
 Options:
   --json                 Print machine-readable JSON.
@@ -38,7 +41,7 @@ Options:
   --keep                 Keep transient artifacts after a successful handoff.
   --paste-to <app>       App name to activate and paste into. Defaults to Codex.
   --no-paste             Capture and copy only; do not activate an app.
-  --key <shortcut>       Hotkey such as control+space or control+option+l.
+  --key <shortcut>       Hotkey such as control+space or control+alt+l.
   -h, --help             Show this help.
 `;
 
@@ -173,7 +176,7 @@ function parseArgs(argv) {
     return { command: `appshot-${action}`, options };
   }
 
-  if (command === "dd") {
+  if (DD_COMMAND_ALIASES.has(command)) {
     const options = parseFlagArgs(argv.slice(1), {
       agent: "codex",
       json: false,
@@ -483,6 +486,41 @@ function hotkeyCommand(system, options) {
   ];
 }
 
+function hotkeyListenerCommand(system, options) {
+  return [
+    process.execPath,
+    path.join(system.repoRoot(), "bin", "lazycopy.js"),
+    "appshot",
+    "hotkey",
+    "run",
+    "--key",
+    options.key,
+    "--app",
+    options.appName ?? "Codex",
+  ];
+}
+
+function windowsHotkeyRunArgs(system, options) {
+  return [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-STA",
+    "-File",
+    path.join(system.repoRoot(), "scripts", "windows-hotkey.ps1"),
+    "-Key",
+    options.key,
+    ...hotkeyCommand(system, options),
+  ];
+}
+
+function powershellCommand(system) {
+  if (typeof system.powershellBin === "function") {
+    return system.powershellBin();
+  }
+  return system.powershellBin || "powershell.exe";
+}
+
 function launchAgentPlist(system, options) {
   const key = options.key;
   const args = [
@@ -529,6 +567,13 @@ async function runHotkey(options, system, io, action) {
   const hotkeyOptions = { ...options, key };
 
   if (action === "run") {
+    if (system.platform === "win32") {
+      return spawnInherit(
+        powershellCommand(system),
+        windowsHotkeyRunArgs(system, hotkeyOptions),
+        io,
+      );
+    }
     const args = [
       path.join(system.repoRoot(), "scripts", "hotkey.swift"),
       hotkeyOptions.key,
@@ -539,6 +584,24 @@ async function runHotkey(options, system, io, action) {
   }
 
   if (action === "install") {
+    if (system.platform === "win32") {
+      const command = hotkeyListenerCommand(system, hotkeyOptions);
+      if (options.dryRun) {
+        return {
+          startupPath: system.startupShortcutPath?.(),
+          command,
+          key: hotkeyOptions.key,
+          appName: hotkeyOptions.appName ?? "Codex",
+        };
+      }
+      const installed = await system.installHotkey(command, { platform: system.platform });
+      return {
+        ...installed,
+        command,
+        key: hotkeyOptions.key,
+        appName: hotkeyOptions.appName ?? "Codex",
+      };
+    }
     const plist = launchAgentPlist(system, hotkeyOptions);
     const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", "com.lazycopy.hotkey.plist");
     if (options.dryRun) {
@@ -551,6 +614,9 @@ async function runHotkey(options, system, io, action) {
   }
 
   if (action === "uninstall") {
+    if (system.platform === "win32") {
+      return system.uninstallHotkey({ platform: system.platform });
+    }
     const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", "com.lazycopy.hotkey.plist");
     await spawnInherit("/bin/launchctl", ["bootout", `gui/${process.getuid()}`, plistPath], io);
     await fs.rm(plistPath, { force: true });
@@ -572,10 +638,11 @@ function spawnInherit(command, args, io) {
 
 function defaultSystem() {
   return {
-    ...macos,
+    ...platformSystem,
     claudeBin: process.env.LAZYCOPY_CLAUDE_BIN || "claude",
     codexBin: process.env.LAZYCOPY_CODEX_BIN || "codex",
     platform: process.platform,
+    powershellBin: process.env.LAZYCOPY_POWERSHELL_BIN || "powershell.exe",
     swiftBin: "swift",
   };
 }
