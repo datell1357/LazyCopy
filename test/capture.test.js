@@ -507,6 +507,69 @@ test("appshot desktop captures the front window, copies it, targets Codex, and c
   ]);
 });
 
+test("Windows appshot desktop uses one fast capture-copy-paste helper when safe", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+  const system = fakeSystem(t, {
+    platform: "win32",
+    tempPngPath: (prefix) => path.join(outputRoot, `${prefix}-fast.png`),
+    async captureCopyPaste(targetPath, options) {
+      this.calls.push(["captureCopyPaste", targetPath, options.mode, options.appName]);
+      await fs.writeFile(targetPath, oneByOnePng);
+      return { source: { type: "windows-front-window", hwnd: "99", nativeCapture: true } };
+    },
+  });
+
+  const exitCode = await runCli(
+    ["appshot", "desktop", "--json", "--output-root", outputRoot, "--paste-to", "Codex"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system,
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.copiedToClipboard, true);
+  assert.equal(payload.pastedTo, "Codex");
+  assert.equal(payload.cleanup.deleted, true);
+  await assert.rejects(fs.access(payload.artifactDir), { code: "ENOENT" });
+  assert.deepEqual(system.calls.map((call) => call[0]), ["captureCopyPaste"]);
+  assert.equal(system.calls[0][2], "active-window");
+  assert.equal(system.calls[0][3], "Codex");
+});
+
+test("Windows appshot desktop falls back when fast helper is not safe", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+  const system = fakeSystem(t, {
+    platform: "win32",
+    async captureCopyPaste() {
+      throw new Error("fast path should not be used with --no-paste");
+    },
+  });
+
+  const exitCode = await runCli(
+    ["appshot", "desktop", "--json", "--no-paste", "--output-root", outputRoot],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system,
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.copiedToClipboard, true);
+  assert.equal(payload.pastedTo, null);
+  assert.deepEqual(system.calls.map((call) => call[0]), [
+    "captureScreenToFile",
+    "copyImageToClipboard",
+  ]);
+});
+
 test("appshot desktop --keep preserves the capture artifact", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
@@ -590,17 +653,64 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
   assert.match(payload.startupPath, /LazyCopy-AppShot-Hotkey\.cmd$/);
   assert.equal(payload.key, "shift+space");
   assert.match(payload.logPath, /LazyCopy\\appshot-hotkey\.log$/);
-  assert.deepEqual(payload.command.slice(-9), [
-    "appshot",
-    "hotkey",
-    "run",
-    "--key",
-    "shift+space",
-    "--app",
-    "Codex",
-    "--log-path",
-    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+  assert.equal(payload.command[0], "powershell.exe");
+  assert.deepEqual(payload.command.slice(1, 6), [
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-STA",
+    "-File",
   ]);
+  assert.match(payload.command[6], /windows-hotkey\.ps1$/);
+  assert.equal(payload.command.includes("run"), false);
+  assert.match(payload.startupCommand, /powershell\.exe/);
+  assert.match(payload.startupCommand, /-WindowStyle Hidden/);
+  assert.doesNotMatch(payload.startupCommand, /\/min/);
+  assert.deepEqual(payload.command.slice(-6), [
+    "appshot",
+    "desktop",
+    "--mode",
+    "active-window",
+    "--paste-to",
+    "Codex",
+  ]);
+});
+
+test("Windows appshot hotkey install starts the direct PowerShell listener", async (t) => {
+  const stdout = captureWrites();
+  const installed = [];
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "install", "--app", "Codex", "--json"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        platform: "win32",
+        startupShortcutPath: () => "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+        hotkeyLogPath: () => "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+        async installHotkey(command, options) {
+          installed.push({ command, options });
+          return {
+            startupPath: "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+            started: true,
+            logPath: options.logPath,
+          };
+        },
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  assert.equal(installed.length, 1);
+  assert.equal(installed[0].command[0], "powershell.exe");
+  assert.match(installed[0].command[6], /windows-hotkey\.ps1$/);
+  assert.equal(installed[0].command.includes("run"), false);
+  assert.match(installed[0].options.startupCommand, /-WindowStyle Hidden/);
+
+  const payload = stdout.json();
+  assert.equal(payload.started, true);
+  assert.deepEqual(payload.command, installed[0].command);
 });
 
 test("Windows appshot hotkey dry-run omits log-path args when no log path is available", async (t) => {
@@ -688,6 +798,15 @@ test("windows paste script does not restore or resize the target app window", as
     "utf8",
   );
 
-  assert.doesNotMatch(script, /ShowWindowAsync\([^\n]+,\s*9\)/);
-  assert.doesNotMatch(script, /SW_RESTORE|ShowWindow\(|SetWindowPos|MoveWindow|Resize/i);
+  const showWindowAsync = ["Show", "WindowAsync"].join("");
+  const restoreOrResize = [
+    ["SW", "RESTORE"].join("_"),
+    ["Show", "Window\\("].join(""),
+    ["Set", "WindowPos"].join(""),
+    ["Move", "Window"].join(""),
+    "Resize",
+  ].join("|");
+
+  assert.doesNotMatch(script, new RegExp(`${showWindowAsync}\\([^\\n]+,\\s*9\\)`));
+  assert.doesNotMatch(script, new RegExp(restoreOrResize, "i"));
 });

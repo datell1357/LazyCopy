@@ -10,6 +10,7 @@ const {
 } = require("./capture");
 const { LazyCopyError } = require("./errors");
 const platformSystem = require("./platform");
+const { hiddenHotkeyStartupCommand } = require("./windows");
 
 const DEFAULT_HOTKEY = "shift+space";
 const VALID_AGENTS = new Set(["codex", "claude"]);
@@ -463,6 +464,38 @@ function redactCodexArgs(args, kind) {
 }
 
 async function runDesktop(options, system) {
+  if (
+    system.platform === "win32" &&
+    options.paste !== false &&
+    !options.fixtureImage &&
+    typeof system.captureCopyPaste === "function"
+  ) {
+    const tempImage = system.tempPngPath("lazycopy-window");
+    try {
+      const pastedTo = options.appName ?? "Codex";
+      const capture = await system.captureCopyPaste(tempImage, {
+        appName: pastedTo,
+        mode: options.mode,
+        platform: system.platform,
+      });
+      const result = await createCaptureArtifact({
+        sourceImage: tempImage,
+        mode: options.mode,
+        outputRoot: options.outputRoot,
+        platform: system.platform,
+        source: capture.source,
+      });
+      return {
+        ...result,
+        cleanup: await cleanupArtifact(result, options),
+        copiedToClipboard: true,
+        pastedTo,
+      };
+    } finally {
+      await removeIfExists(tempImage);
+    }
+  }
+
   const result = await runCapture(options, system);
   await system.copyImageToClipboard(result.imagePath, { platform: system.platform });
 
@@ -602,11 +635,16 @@ async function runHotkey(options, system, io, action) {
 
   if (action === "install") {
     if (system.platform === "win32") {
-      const command = hotkeyListenerCommand(system, hotkeyOptions);
+      const powershell = powershellCommand(system);
+      const command = [powershell, ...windowsHotkeyRunArgs(system, hotkeyOptions)];
+      const startupCommand = hiddenHotkeyStartupCommand(command, {
+        powershell,
+      });
       if (options.dryRun) {
         return {
           startupPath: system.startupShortcutPath?.(),
           command,
+          startupCommand,
           logPath: hotkeyOptions.logPath,
           key: hotkeyOptions.key,
           appName: hotkeyOptions.appName ?? "Codex",
@@ -615,6 +653,7 @@ async function runHotkey(options, system, io, action) {
       const installed = await system.installHotkey(command, {
         platform: system.platform,
         logPath: hotkeyOptions.logPath,
+        startupCommand,
       });
       return {
         ...installed,

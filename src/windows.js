@@ -66,6 +66,24 @@ async function captureScreenToFile(targetPath, options = {}) {
   return { source };
 }
 
+async function captureCopyPaste(targetPath, options = {}) {
+  requireWindows(options.platform);
+  await ensureParent(targetPath);
+  const mode = options.mode ?? "active-window";
+  const appName = options.appName ?? "Codex";
+  const result = await runPowerShell(
+    "windows-appshot-fast.ps1",
+    ["-TargetPath", targetPath, "-Mode", mode, "-AppName", appName],
+    options,
+  );
+  let source = { type: `windows-${mode}`, nativeCapture: true };
+  try {
+    source = JSON.parse(result.stdout.trim());
+  } catch {
+  }
+  return { source };
+}
+
 async function copyImageToClipboard(imagePath, options = {}) {
   requireWindows(options.platform);
   await runPowerShell("windows-copy-image-to-clipboard.ps1", ["-ImagePath", imagePath], options);
@@ -117,15 +135,40 @@ function quoteCmdArg(arg) {
   return `"${String(arg).replace(/"/g, '""')}"`;
 }
 
+function quotePowerShellString(arg) {
+  return `'${String(arg).replace(/'/g, "''")}'`;
+}
+
+function hiddenHotkeyStartupCommand(command, options = {}) {
+  const powershell = options.powershell ?? powershellBin();
+  const filePath = quotePowerShellString(command[0]);
+  const args = command.slice(1).map(quotePowerShellString).join(", ");
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    `Start-Process -WindowStyle Hidden -FilePath ${filePath} -ArgumentList @(${args})`,
+  ].join("\r\n");
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  return [
+    quoteCmdArg(powershell),
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-WindowStyle",
+    "Hidden",
+    "-EncodedCommand",
+    encoded,
+  ].join(" ");
+}
+
 async function installHotkey(command, options = {}) {
   requireWindows(options.platform);
   const startupPath = startupShortcutPath();
   const logPath = options.logPath ?? hotkeyLogPath();
   await ensureParent(startupPath);
-  const commandLine = command.map(quoteCmdArg).join(" ");
+  const commandLine = options.startupCommand ?? hiddenHotkeyStartupCommand(command, options);
   await fs.writeFile(
     startupPath,
-    `@echo off\r\nrem LazyCopy AppShot hotkey log: ${logPath}\r\nstart "LazyCopy AppShot Hotkey" /min ${commandLine}\r\n`,
+    `@echo off\r\nrem LazyCopy AppShot hotkey log: ${logPath}\r\n${commandLine}\r\n`,
   );
 
   const child = spawn(command[0], command.slice(1), {
@@ -145,8 +188,10 @@ async function uninstallHotkey(options = {}) {
 }
 
 module.exports = {
+  captureCopyPaste,
   captureScreenToFile,
   copyImageToClipboard,
+  hiddenHotkeyStartupCommand,
   hotkeyLogPath,
   installHotkey,
   pasteIntoApp,
