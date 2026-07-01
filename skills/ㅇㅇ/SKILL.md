@@ -1,5 +1,7 @@
 ---
 name: ㅇㅇ
+title: "LazyCopy:ㅇㅇ"
+display-name: "LazyCopy:ㅇㅇ"
 description: Hangul-mode alias for dd. Drop the current OS clipboard text or image into Codex through LazyCopy.
 argument-hint: "[클립보드에 대한 요청, 선택]"
 user-invocable: true
