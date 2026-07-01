@@ -565,6 +565,7 @@ function windowsHotkeyRunArgs(system, options) {
 
 function windowsWatcherRunArgs(system, options) {
   const listenerCommand = [powershellCommand(system), ...windowsHotkeyRunArgs(system, options)];
+  const listenerCommandBase64 = Buffer.from(JSON.stringify(listenerCommand), "utf8").toString("base64");
   const args = [
     "-NoProfile",
     "-ExecutionPolicy",
@@ -580,7 +581,7 @@ function windowsWatcherRunArgs(system, options) {
   if (options.logPath) {
     args.push("-LogPath", options.logPath);
   }
-  args.push("-PollSeconds", "2", ...listenerCommand);
+  args.push("-PollSeconds", "2", "-ListenerCommandBase64", listenerCommandBase64);
   return args;
 }
 

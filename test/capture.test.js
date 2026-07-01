@@ -320,7 +320,7 @@ test("Codex dd aliases map to the same default dd behavior", async (t) => {
 test("package exposes short terminal commands without lazycopy prefix", async () => {
   const packageJson = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8"));
   assert.equal(packageJson.bin.dd, "./bin/dd.js");
-  assert.equal(packageJson.bin["ㅇㅇ"], "./bin/ㅇㅇ.js");
+  assert.equal(packageJson.bin["ㅇㅇ"], "./bin/dd.js");
 });
 
 test("installer exposes Claude Code slash commands for dd", async () => {
@@ -342,6 +342,13 @@ test("installer exposes Claude Code slash commands for dd", async () => {
     assert.match(command, /dd clipboard --json/);
     assert.doesNotMatch(command, /--agent claude/);
   }
+});
+
+test("installer uses direct spawn so Windows Node paths with spaces stay intact", async () => {
+  const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
+
+  assert.match(installer, /shell:\s*false/);
+  assert.doesNotMatch(installer, /shell:\s*process\.platform\s*===\s*"win32"/);
 });
 
 test("installer smoke installs Codex skills, prompts, and Claude commands in a temp HOME", async (t) => {
@@ -405,6 +412,42 @@ test("installer replaces old Korean skill symlink without overwriting root dd sk
   assert.equal((await fs.lstat(aliasDir)).isSymbolicLink(), false);
   const aliasSkill = await fs.readFile(path.join(aliasDir, "SKILL.md"), "utf8");
   assert.equal(skillFrontmatter(aliasSkill).name, "ㅇㅇ");
+});
+
+test("Windows installer writes stable ASCII-entrypoint user bin wrappers", async (t) => {
+  const home = await makeTempDir(t);
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      LAZYCOPY_INSTALL_TEST_PLATFORM: "win32",
+      LAZYCOPY_INSTALL_SKIP_NPM_LINK: "1",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.match(install.stdout, /Windows user-bin wrappers/);
+
+  const binDir = path.join(home, "bin");
+  const ddCmd = await fs.readFile(path.join(binDir, "dd.cmd"), "utf8");
+  const shorthandCmd = await fs.readFile(path.join(binDir, "ㅇㅇ.cmd"), "utf8");
+  const lazycopyCmd = await fs.readFile(path.join(binDir, "lazycopy.cmd"), "utf8");
+  const ddSh = await fs.readFile(path.join(binDir, "dd"), "utf8");
+  const shorthandSh = await fs.readFile(path.join(binDir, "ㅇㅇ"), "utf8");
+  const lazycopySh = await fs.readFile(path.join(binDir, "lazycopy"), "utf8");
+
+  assert.match(ddCmd, /bin\\lazycopy\.js" dd %\*/);
+  assert.match(shorthandCmd, /bin\\lazycopy\.js" dd %\*/);
+  assert.match(lazycopyCmd, /bin\\lazycopy\.js" %\*/);
+  assert.doesNotMatch(ddCmd, /ㅇㅇ\.js/);
+  assert.doesNotMatch(shorthandCmd, /ㅇㅇ\.js/);
+  assert.match(ddSh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" dd "\$@"/);
+  assert.match(shorthandSh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" dd "\$@"/);
+  assert.match(lazycopySh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" "\$@"/);
 });
 
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
@@ -679,7 +722,6 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
     "-File",
   ]);
   assert.match(payload.command[6], /windows-appshot-watch\.ps1$/);
-  assert.match(payload.command.join("\n"), /windows-hotkey\.ps1/);
   assert.deepEqual(payload.command.slice(7, 14), [
     "-Key",
     "shift+space",
@@ -690,11 +732,30 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
     "-PollSeconds",
   ]);
   assert.equal(payload.command[14], "2");
+  assert.equal(payload.command[15], "-ListenerCommandBase64");
+  assert.equal(payload.command.filter((value) => value === "-Key").length, 1);
+  const listenerCommand = JSON.parse(Buffer.from(payload.command[16], "base64").toString("utf8"));
+  assert.deepEqual(listenerCommand.slice(0, 6), [
+    "powershell.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-STA",
+    "-File",
+  ]);
+  assert.match(listenerCommand[6], /windows-hotkey\.ps1$/);
+  assert.deepEqual(listenerCommand.slice(7, 12), [
+    "-Key",
+    "shift+space",
+    "-LogPath",
+    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+    process.execPath,
+  ]);
   assert.equal(payload.command.includes("run"), false);
   assert.match(payload.startupCommand, /powershell\.exe/);
   assert.match(payload.startupCommand, /-WindowStyle Hidden/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
-  assert.deepEqual(payload.command.slice(-6), [
+  assert.deepEqual(listenerCommand.slice(-6), [
     "appshot",
     "desktop",
     "--mode",
@@ -733,7 +794,12 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(installed.length, 1);
   assert.equal(installed[0].command[0], "powershell.exe");
   assert.match(installed[0].command[6], /windows-appshot-watch\.ps1$/);
-  assert.match(installed[0].command.join("\n"), /windows-hotkey\.ps1/);
+  assert.equal(installed[0].command.includes("-ListenerCommandBase64"), true);
+  assert.equal(installed[0].command.filter((value) => value === "-Key").length, 1);
+  const listenerCommand = JSON.parse(
+    Buffer.from(installed[0].command[installed[0].command.indexOf("-ListenerCommandBase64") + 1], "base64").toString("utf8"),
+  );
+  assert.match(listenerCommand[6], /windows-hotkey\.ps1$/);
   assert.equal(installed[0].command.includes("run"), false);
   assert.match(installed[0].options.startupCommand, /-WindowStyle Hidden/);
 
@@ -806,6 +872,8 @@ test("Windows watcher helper manages the visible Codex listener lifecycle", asyn
   assert.match(script, /\[string\]\$Key = "shift\+space"/);
   assert.match(script, /\[string\]\$AppName = "Codex"/);
   assert.match(script, /\[int\]\$PollSeconds = 2/);
+  assert.match(script, /\[string\]\$ListenerCommandBase64/);
+  assert.match(script, /FromBase64String\(\$ListenerCommandBase64\)/);
   assert.match(script, /\[regex\]::Escape\(\$AppName\)/);
   assert.match(script, /MainWindowHandle -ne 0/);
   assert.match(script, /ProcessName -match \$escaped/);

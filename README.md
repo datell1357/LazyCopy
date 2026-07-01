@@ -144,7 +144,7 @@ Installed surface | Location | Purpose
 Codex skill | `%USERPROFILE%\.codex\skills\dd` | Makes `$dd`, `$ㅇㅇ`, and natural `dd`/`ㅇㅇ` use available to Codex skill discovery.
 Codex prompts | `%USERPROFILE%\.codex\prompts\dd.md`, `%USERPROFILE%\.codex\prompts\ㅇㅇ.md` | Makes `/dd` and `/ㅇㅇ` available in Codex prompt surfaces.
 Claude commands | `%USERPROFILE%\.claude\commands\dd.md`, `%USERPROFILE%\.claude\commands\ㅇㅇ.md` | Makes `/dd` and `/ㅇㅇ` available in Claude Code.
-Terminal commands | `dd`, `ㅇㅇ`, `lazycopy` through `npm link` | Allows direct CLI use from PowerShell.
+Terminal commands | `dd`, `ㅇㅇ`, `lazycopy` through `npm link` and `%USERPROFILE%\bin` wrappers | Allows direct CLI use from PowerShell, cmd, and Git Bash when the user bin is first on `PATH`.
 AppShot watcher | Windows Startup launcher | Keeps AppShot listener aligned with the Codex Desktop lifecycle.
 
 No separate AppShot skill command is installed. Normal AppShot use is always the installed `Shift+Space` hotkey.
@@ -232,6 +232,8 @@ Test-Path "$HOME\.codex\prompts\dd.md"
 Test-Path "$HOME\.codex\prompts\ㅇㅇ.md"
 Test-Path "$HOME\.claude\commands\dd.md"
 Test-Path "$HOME\.claude\commands\ㅇㅇ.md"
+Test-Path "$HOME\bin\dd.cmd"
+Test-Path "$HOME\bin\ㅇㅇ.cmd"
 ```
 
 Then verify `dd` privacy behavior:
@@ -291,6 +293,8 @@ Codex and Claude slash commands are different from your shell command lookup. If
 npm --prefix "$HOME\.codex\skills\dd" run install-user
 dd --help
 ```
+
+On Git Bash, `dd` may resolve to Git's coreutils `dd.exe` if Git's `usr\bin` appears before `%USERPROFILE%\bin` on `PATH`. The installer writes `%USERPROFILE%\bin\dd`, `%USERPROFILE%\bin\ㅇㅇ`, and matching `.cmd` wrappers; make sure that user bin directory appears before Git's `usr\bin`, then reopen the terminal.
 
 ### Codex Gets Text But Not an Image
 
