@@ -6,7 +6,7 @@
   "bin": {
     "lazycopy": "./bin/lazycopy.js",
     "dd": "./bin/dd.js",
-    "ㅇㅇ": "./bin/ㅇㅇ.js"
+    "ㅇㅇ": "./bin/dd.js"
   },
   "scripts": {
     "install-user": "node scripts/install-user.js",

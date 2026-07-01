@@ -25,11 +25,28 @@ const ddSkillTarget = path.join(ddSkillDir, "SKILL.md");
 const shorthandSkillSource = path.join(repoRoot, "skills", "ㅇㅇ", "SKILL.md");
 const shorthandSkillTarget = path.join(shorthandSkillDir, "SKILL.md");
 
+function installPlatform() {
+  return process.env.LAZYCOPY_INSTALL_TEST_PLATFORM || process.platform;
+}
+
+function isWindows() {
+  return installPlatform() === "win32";
+}
+
+function resolveRunCommand(command, platform = installPlatform()) {
+  if (platform === "win32" && command === "npm") {
+    return "npm.cmd";
+  }
+  return command;
+}
+
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, {
+  const platform = options.platform ?? installPlatform();
+  const result = spawnSync(resolveRunCommand(command, platform), args, {
     cwd: options.cwd ?? repoRoot,
     stdio: "inherit",
-    shell: process.platform === "win32",
+    shell: false,
+    windowsHide: platform === "win32",
   });
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -53,7 +70,7 @@ function copySkillFile(source, target) {
 function ensureDdSkill() {
   fs.mkdirSync(skillsDir, { recursive: true });
   if (!fs.existsSync(ddSkillDir)) {
-    fs.symlinkSync(repoRoot, ddSkillDir, process.platform === "win32" ? "junction" : "dir");
+    fs.symlinkSync(repoRoot, ddSkillDir, isWindows() ? "junction" : "dir");
     return;
   }
   if (sameExistingPath(ddSkillDir, repoRoot)) {
@@ -91,6 +108,51 @@ function installClaudeCommands() {
   fs.copyFileSync(claudeShorthandCommandSource, claudeShorthandCommandTarget);
 }
 
+function windowsUserBinDir() {
+  return path.join(os.homedir(), "bin");
+}
+
+function windowsUserBinIsAheadOfGit(binDir) {
+  const pathValue = process.env.Path || process.env.PATH || "";
+  const separator = isWindows() ? ";" : path.delimiter;
+  const parts = pathValue
+    .split(separator)
+    .map((part) => path.normalize(part).toLowerCase());
+  const binIndex = parts.indexOf(path.normalize(binDir).toLowerCase());
+  const gitIndex = parts.findIndex((part) => part.endsWith(path.normalize("git\\usr\\bin").toLowerCase()));
+  return binIndex !== -1 && (gitIndex === -1 || binIndex < gitIndex);
+}
+
+function writeExecutable(filePath, content) {
+  fs.writeFileSync(filePath, content);
+  fs.chmodSync(filePath, 0o755);
+}
+
+function installWindowsUserBinWrappers() {
+  const binDir = windowsUserBinDir();
+  fs.mkdirSync(binDir, { recursive: true });
+
+  const lazycopyEntry = "%USERPROFILE%\\.codex\\skills\\dd\\bin\\lazycopy.js";
+  const shEntry = "$USERPROFILE/.codex/skills/dd/bin/lazycopy.js";
+  const wrappers = {
+    "dd.cmd": `@echo off\r\nnode "${lazycopyEntry}" dd %*\r\n`,
+    "ㅇㅇ.cmd": `@echo off\r\nnode "${lazycopyEntry}" dd %*\r\n`,
+    "lazycopy.cmd": `@echo off\r\nnode "${lazycopyEntry}" %*\r\n`,
+    dd: `#!/usr/bin/env sh\nexec node "${shEntry}" dd "$@"\n`,
+    "ㅇㅇ": `#!/usr/bin/env sh\nexec node "${shEntry}" dd "$@"\n`,
+    lazycopy: `#!/usr/bin/env sh\nexec node "${shEntry}" "$@"\n`,
+  };
+
+  for (const [name, content] of Object.entries(wrappers)) {
+    writeExecutable(path.join(binDir, name), content);
+  }
+
+  console.log(`Windows user-bin wrappers installed at ${binDir}.`);
+  if (!windowsUserBinIsAheadOfGit(binDir)) {
+    console.warn(`Warning: ${binDir} is not before Git usr\\bin on PATH; Git Bash may still resolve coreutils dd first.`);
+  }
+}
+
 ensureDdSkill();
 installShorthandSkill();
 installPrompt();
@@ -99,7 +161,8 @@ if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
   run("npm", ["link"]);
 }
 
-if (process.platform === "win32") {
+if (isWindows()) {
+  installWindowsUserBinWrappers();
   if (process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY !== "1") {
     run(process.execPath, [
       path.join(repoRoot, "bin", "lazycopy.js"),

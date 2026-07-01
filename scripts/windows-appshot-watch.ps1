@@ -3,6 +3,7 @@ param(
   [string]$AppName = "Codex",
   [string]$LogPath,
   [int]$PollSeconds = 2,
+  [string]$ListenerCommandBase64,
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$ListenerCommand
 )
 
@@ -29,6 +30,21 @@ function Write-LazyCopyLog([string]$Message) {
   }
   $timestamp = (Get-Date).ToString("o")
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
+}
+
+function ConvertFrom-LazyCopyListenerCommandBase64 {
+  try {
+    $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ListenerCommandBase64))
+    $decoded = ConvertFrom-Json -InputObject $json
+    return @($decoded | ForEach-Object { [string]$_ })
+  } catch {
+    Write-LazyCopyLog "watcher-failed invalid-listener-command message=$($_.Exception.Message)"
+    throw
+  }
+}
+
+if ($ListenerCommandBase64) {
+  $ListenerCommand = ConvertFrom-LazyCopyListenerCommandBase64
 }
 
 function Test-LazyCopyCodexVisible {
