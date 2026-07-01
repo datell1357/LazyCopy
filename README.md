@@ -107,6 +107,8 @@ It should print `LazyCopy hotkey listening: shift+space`. Registration failures 
 %LOCALAPPDATA%\LazyCopy\appshot-hotkey.log
 ```
 
+If the hotkey worked earlier but later becomes silent, check this log for `listener-stop`, `listener-failed`, or `command-launch-failed`, then reinstall the hotkey to restart the background listener.
+
 ### dd
 
 Use any of these in Codex Desktop or Codex CLI message input:
