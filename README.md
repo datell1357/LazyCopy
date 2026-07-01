@@ -86,6 +86,8 @@ Expected behavior:
 - LazyCopy pastes the image into the Codex input.
 - LazyCopy does not submit the message.
 
+Codex Desktop must already be running with a visible window for the paste step. If it is closed, the hotkey listener still fires, but the paste command cannot find a Codex window.
+
 ### dd
 
 Use any of these in Codex Desktop or Codex CLI message input:
@@ -101,8 +103,8 @@ dd 이 클립보드 내용을 보고 이어서 작업해줘
 
 Expected behavior:
 
-- LazyCopy reads the latest clipboard image or text.
-- LazyCopy sends that context to Codex CLI by default.
+- LazyCopy reads the latest clipboard image first, then falls back to clipboard text.
+- LazyCopy sends image context to Codex CLI with the `-i` image attachment path by default.
 - LazyCopy uses Claude Code only when the message explicitly asks for Claude.
 - The user does not need to pass `--agent`, `--prompt`, `--prefer`, or other flags.
 

@@ -191,6 +191,36 @@ test("dd codex dry-run builds resume argv from clipboard text", async (t) => {
   assert.equal(await fs.readFile(payload.artifact.textPath, "utf8"), "clipboard text");
 });
 
+test("dd codex dry-run attaches clipboard image for AI vision", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["dd", "Read this clipboard image", "--dry-run", "--output-root", outputRoot],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        async readClipboardImageToFile(targetPath) {
+          await fs.writeFile(targetPath, oneByOnePng);
+        },
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.artifact.kind, "image");
+  assert.equal(payload.dd.agent, "codex");
+  assert.deepEqual(payload.dd.args.slice(0, 4), ["resume", "--last", "-i", "capture.png"]);
+  assert.equal(payload.dd.args[4], "Read this clipboard image");
+  const manifest = JSON.parse(await fs.readFile(payload.artifact.manifestPath, "utf8"));
+  assert.equal(manifest.kind, "lazycopy-capture");
+  assert.equal(manifest.codexAttach.method, "local-image-path");
+  assert.deepEqual(manifest.source, { type: "clipboard-image", nativeCapture: false });
+  assert.equal((await fs.readFile(payload.artifact.imagePath)).byteLength, oneByOnePng.byteLength);
+});
+
 test("dd accepts a plain message without flags", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
@@ -294,6 +324,42 @@ test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   const manifest = await fs.readFile(payload.artifact.manifestPath, "utf8");
   assert.equal(manifest.includes("clipboard text"), false);
   assert.match(manifest, /<clipboard-text:redacted>/);
+});
+
+test("dd claude dry-run exposes clipboard image artifact directory", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    [
+      "dd",
+      "--agent",
+      "claude",
+      "--dry-run",
+      "--prompt",
+      "Read this image",
+      "--output-root",
+      outputRoot,
+    ],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        async readClipboardImageToFile(targetPath) {
+          await fs.writeFile(targetPath, oneByOnePng);
+        },
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.artifact.kind, "image");
+  assert.equal(payload.dd.agent, "claude");
+  assert.deepEqual(payload.dd.args.slice(0, 3), ["--continue", "--print", "--add-dir"]);
+  assert.equal(payload.dd.args[3], "<lazycopy-artifact-dir>");
+  assert.equal(payload.dd.args[4], "--");
+  assert.equal(payload.dd.args[5], "<prompt-with-clipboard-image:redacted>");
 });
 
 test("appshot desktop captures the front window, copies it, targets Codex, and cleans up", async (t) => {

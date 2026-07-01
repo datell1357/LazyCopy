@@ -435,9 +435,9 @@ function redactDdArgs(args, clipboardResult) {
   return args.map((arg) => {
     let redacted = String(arg);
     const replacements = [
-      [clipboardResult.artifactDir, "<lazycopy-artifact-dir>"],
       [clipboardResult.imagePath, "capture.png"],
       [clipboardResult.textPath, "clipboard.txt"],
+      [clipboardResult.artifactDir, "<lazycopy-artifact-dir>"],
     ].filter(([value]) => typeof value === "string" && value.length > 0);
 
     for (const [value, replacement] of replacements) {
