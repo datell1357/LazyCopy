@@ -90,6 +90,8 @@ Expected behavior:
 - LazyCopy pastes the image into the Codex input.
 - LazyCopy does not submit the message.
 
+The normal Windows hotkey path performs capture, clipboard update, and paste in one PowerShell helper process. The installer starts the listener in the background and writes a hidden Startup launcher so no PowerShell or cmd window should remain open after install.
+
 Codex Desktop must already be running with a visible window for the paste step. If it is closed, the hotkey listener still fires, but the paste command cannot find a Codex window.
 
 If `Shift+Space` appears silent, run the listener in the foreground:
