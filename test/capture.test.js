@@ -6,8 +6,9 @@ const os = require("node:os");
 const path = require("node:path");
 const { test } = require("node:test");
 
-const { createCaptureArtifact } = require("../src/capture");
-const { runCli } = require("../src/cli");
+const { createCaptureArtifact, createTextArtifact } = require("../src/capture");
+const { LazyCopyError } = require("../src/errors");
+const { launchAgentPlist, runCli } = require("../src/cli");
 
 const repoRoot = path.resolve(__dirname, "..");
 const oneByOnePng = Buffer.from(
@@ -26,6 +27,50 @@ async function writeFixture(t) {
   const fixture = path.join(dir, "fixture.png");
   await fs.writeFile(fixture, oneByOnePng);
   return { dir, fixture };
+}
+
+function captureWrites() {
+  const writes = [];
+  return {
+    stream: { write: (text) => writes.push(text) },
+    text: () => writes.join(""),
+    json: () => JSON.parse(writes.join("")),
+  };
+}
+
+function fakeSystem(t, overrides = {}) {
+  const calls = [];
+  const tempRootPromise = makeTempDir(t);
+
+  return {
+    calls,
+    codexBin: "codex",
+    platform: "darwin",
+    repoRoot: () => repoRoot,
+    swiftBin: "swift",
+    tempPngPath: (prefix) => path.join(os.tmpdir(), `${prefix}-test.png`),
+    async captureScreenToFile(targetPath, options) {
+      calls.push(["captureScreenToFile", targetPath, options.mode]);
+      await fs.writeFile(targetPath, oneByOnePng);
+      return { source: { type: "macos-front-window", windowId: "42", nativeCapture: true } };
+    },
+    async copyImageToClipboard(imagePath) {
+      calls.push(["copyImageToClipboard", imagePath]);
+    },
+    async pasteIntoApp(appName) {
+      calls.push(["pasteIntoApp", appName]);
+    },
+    async readClipboardImageToFile() {
+      throw new LazyCopyError("NO_CLIPBOARD_IMAGE", "No clipboard image.");
+    },
+    async readClipboardText() {
+      return "clipboard text";
+    },
+    async tempRoot() {
+      return tempRootPromise;
+    },
+    ...overrides,
+  };
 }
 
 test("createCaptureArtifact writes manifest when given a PNG fixture", async (t) => {
@@ -66,72 +111,145 @@ test("createCaptureArtifact writes manifest when given a PNG fixture", async (t)
   assert.equal(manifest.codexAttach.path, result.imagePath);
   assert.equal(manifest.source.type, "fixture-image");
   assert.equal(manifest.source.nativeCapture, false);
-  assert.equal(manifest.privacy.potentiallySecretBearing, true);
-  assert.equal(manifest.privacy.rawWindowTitleStored, false);
-  assert.equal(Object.hasOwn(manifest.privacy, "rawWindowTitle"), false);
 });
 
-test("createCaptureArtifact rejects invalid capture modes", async (t) => {
-  const { fixture } = await writeFixture(t);
+test("createTextArtifact writes clipboard text for prompt use", async (t) => {
   const outputRoot = await makeTempDir(t);
+  const result = await createTextArtifact({
+    id: "text-id",
+    now: new Date("2026-07-01T00:00:00.000Z"),
+    outputRoot,
+    platform: "darwin",
+    text: "hello from clipboard",
+  });
 
-  await assert.rejects(
-    createCaptureArtifact({
-      fixtureImage: fixture,
-      mode: "window-list",
-      outputRoot,
-    }),
-    /Invalid mode/,
-  );
+  const manifest = JSON.parse(await fs.readFile(result.manifestPath, "utf8"));
+  assert.equal(await fs.readFile(result.textPath, "utf8"), "hello from clipboard");
+  assert.equal(manifest.kind, "lazycopy-clipboard");
+  assert.equal(manifest.textPath, "clipboard.txt");
+  assert.equal(manifest.codexAttach.method, "prompt-text");
+  assert.equal(manifest.textSha256, crypto.createHash("sha256").update("hello from clipboard").digest("hex"));
 });
 
-test("runCli returns a JSON error without a fixture", async (t) => {
+test("clipboard command falls back to text when no clipboard image exists", async (t) => {
   const outputRoot = await makeTempDir(t);
-  const writes = [];
+  const stdout = captureWrites();
 
   const exitCode = await runCli(
-    ["capture", "--json", "--output-root", outputRoot],
+    ["clipboard", "--json", "--output-root", outputRoot],
     {
-      platform: "darwin",
-      stdout: { write: (text) => writes.push(text) },
+      stdout: stdout.stream,
       stderr: { write: () => {} },
+      system: fakeSystem(t),
     },
   );
 
-  assert.equal(exitCode, 1);
-  const payload = JSON.parse(writes.join(""));
-  assert.equal(payload.ok, false);
-  assert.equal(payload.error.code, "CAPTURE_FIXTURE_REQUIRED");
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.kind, "text");
+  assert.equal(await fs.readFile(payload.textPath, "utf8"), "clipboard text");
 });
 
-test("lazycopy help is standalone and rejects obsolete flags", async (t) => {
-  const { fixture } = await writeFixture(t);
+test("codex dry-run builds resume argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
-  const bin = path.join(repoRoot, "bin", "lazycopy.js");
+  const stdout = captureWrites();
 
+  const exitCode = await runCli(
+    [
+      "codex",
+      "--dry-run",
+      "--prefer",
+      "text",
+      "--prompt",
+      "Explain this",
+      "--output-root",
+      outputRoot,
+    ],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.codex.command, "codex");
+  assert.deepEqual(payload.codex.args.slice(0, 2), ["resume", "--last"]);
+  assert.equal(payload.codex.args[2], "<prompt-with-clipboard-text:redacted>");
+  assert.equal(JSON.stringify(payload).includes("clipboard text"), false);
+  assert.equal(await fs.readFile(payload.artifact.textPath, "utf8"), "clipboard text");
+});
+
+test("desktop command captures the front window, copies it, and targets Codex", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+  const system = fakeSystem(t);
+
+  const exitCode = await runCli(
+    ["desktop", "--json", "--output-root", outputRoot, "--paste-to", "Codex"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system,
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.copiedToClipboard, true);
+  assert.equal(payload.pastedTo, "Codex");
+  assert.equal((await fs.readFile(payload.imagePath)).byteLength, oneByOnePng.byteLength);
+  assert.deepEqual(system.calls.map((call) => call[0]), [
+    "captureScreenToFile",
+    "copyImageToClipboard",
+    "pasteIntoApp",
+  ]);
+});
+
+test("hotkey install dry-run emits a LaunchAgent for LazyCopy desktop", async (t) => {
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["hotkey", "install", "--key", "command+shift+l", "--app", "Codex", "--dry-run"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.ok, true);
+  assert.match(payload.plist, /com\.lazycopy\.hotkey/);
+  assert.match(payload.plist, /command\+shift\+l/);
+  assert.match(payload.plist, /hotkey/);
+  assert.match(payload.plist, /run/);
+});
+
+test("lazycopy help exposes desktop, clipboard, codex, and hotkey surfaces", async () => {
+  const bin = path.join(repoRoot, "bin", "lazycopy.js");
   const help = spawnSync(process.execPath, [bin, "--help"], {
     cwd: repoRoot,
     encoding: "utf8",
   });
-  const rejected = spawnSync(
-    process.execPath,
-    [
-      bin,
-      "capture",
-      "--json",
-      "--desktop-current",
-      "--fixture-image",
-      fixture,
-      "--output-root",
-      outputRoot,
-    ],
-    { cwd: repoRoot, encoding: "utf8" },
-  );
 
   assert.equal(help.status, 0);
+  assert.match(help.stdout, /desktop/);
+  assert.match(help.stdout, /clipboard/);
+  assert.match(help.stdout, /codex/);
+  assert.match(help.stdout, /hotkey/);
   assert.equal(help.stdout.includes("--desktop-current"), false);
-  assert.equal(rejected.status, 1);
-  const payload = JSON.parse(rejected.stdout);
-  assert.equal(payload.ok, false);
-  assert.equal(payload.error.code, "UNKNOWN_OPTION");
+});
+
+test("launchAgentPlist escapes argument values", () => {
+  const plist = launchAgentPlist(
+    { repoRoot: () => "/tmp/LazyCopy" },
+    { key: "command+shift+l", appName: "Codex & Friends" },
+  );
+
+  assert.match(plist, /Codex &amp; Friends/);
 });

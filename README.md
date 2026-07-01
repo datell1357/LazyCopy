@@ -1,6 +1,13 @@
 # LazyCopy
 
-LazyCopy is a standalone Codex skill and small local CLI for turning a PNG image into a capture artifact. The artifact contains the image plus a JSON manifest with dimensions, SHA-256, capture mode, and the local path Codex can attach.
+LazyCopy is a standalone Codex skill and local CLI for moving visual or clipboard context into Codex.
+
+It can:
+
+- Capture the current macOS window, copy the PNG, and paste it into Codex Desktop.
+- Package the latest clipboard image or text into a local artifact.
+- Resume the latest Codex CLI session with clipboard text in the prompt or a clipboard image attached with `-i`.
+- Run a macOS global hotkey that triggers the current-window desktop flow.
 
 ## Install As A Codex Skill
 
@@ -15,11 +22,36 @@ Then invoke the skill in Codex with `$LazyCopy`.
 
 ## CLI Use
 
-Run the local CLI directly from the repository:
+Run the local CLI directly from the repository.
+
+Capture the current front window and paste it into Codex Desktop:
 
 ```sh
-node ./bin/lazycopy.js --help
-node ./bin/lazycopy.js capture --json --fixture-image ./example.png --output-root ./captures
+node ./bin/lazycopy.js desktop --mode active-window --paste-to Codex
 ```
 
-The current CLI packages an existing PNG file. Native screen capture is intentionally not claimed until it exists.
+Package the latest clipboard content:
+
+```sh
+node ./bin/lazycopy.js clipboard --json
+```
+
+Resume the latest Codex CLI session with the latest clipboard content:
+
+```sh
+node ./bin/lazycopy.js codex --resume last --prompt "Use this context"
+```
+
+Run a global hotkey until the process exits:
+
+```sh
+node ./bin/lazycopy.js hotkey run --key command+shift+l --app Codex
+```
+
+Install the hotkey as a LaunchAgent:
+
+```sh
+node ./bin/lazycopy.js hotkey install --key command+shift+l --app Codex
+```
+
+The desktop and hotkey flows require macOS Screen Recording permission for capture, and Accessibility permission for sending paste to Codex Desktop.

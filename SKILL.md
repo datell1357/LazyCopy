@@ -1,12 +1,13 @@
 # LazyCopy
 
-Use LazyCopy when the user wants to package a local PNG image as a Codex-ready capture artifact.
+Use LazyCopy when the user wants to send the current window or latest clipboard content into Codex.
 
 ## What This Skill Does
 
-- Creates a dated capture artifact directory from a PNG file.
-- Writes `capture.png` and `manifest.json`.
-- Records image dimensions, byte count, SHA-256, capture mode, platform, and the local path Codex can attach.
+- Captures the current macOS window and can paste it into Codex Desktop.
+- Reads the latest clipboard image or text and packages it for an AI agent.
+- Resumes the latest Codex CLI session with clipboard text in the prompt or a clipboard image attached.
+- Provides a macOS global hotkey runner/installer for the desktop flow.
 
 ## Local CLI
 
@@ -14,10 +15,13 @@ From this skill directory:
 
 ```sh
 node ./bin/lazycopy.js --help
-node ./bin/lazycopy.js capture --json --fixture-image /absolute/path/to/image.png --output-root /tmp/lazycopy-captures
+node ./bin/lazycopy.js desktop --mode active-window --paste-to Codex
+node ./bin/lazycopy.js clipboard --json
+node ./bin/lazycopy.js codex --resume last --prompt "Use this context"
+node ./bin/lazycopy.js hotkey run --key command+shift+l --app Codex
 ```
 
-The CLI currently packages an existing PNG fixture. If the user asks for native screen capture, say that native capture is not implemented in this standalone skill yet and ask for or create a PNG through another available capture surface first.
+If macOS blocks capture or paste automation, ask the user to grant Screen Recording or Accessibility permission to the terminal/app running LazyCopy.
 
 ## Install
 
