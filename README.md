@@ -8,9 +8,9 @@ Windows-first AppShot + `dd` for Codex: press one hotkey to send the active wind
 
 <p>
   <a href="#trust--setup"><img src="https://img.shields.io/badge/OS-Windows-0078D4" alt="OS Windows"></a>
-  <a href="#install-from-codex-desktop"><img src="https://img.shields.io/badge/Platform-Codex-111111" alt="Platform Codex"></a>
+  <a href="#install-from-codex-desktop"><img src="https://img.shields.io/badge/Platform-Codex%20Desktop%26CLI-111111" alt="Platform Codex Desktop and CLI"></a>
   <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License MIT"></a>
-  <a href="https://github.com/datell1357/LazyCopy/stargazers"><img src="https://img.shields.io/github/stars/datell1357/LazyCopy?label=GitHub%20stars&color=F0B72F" alt="GitHub stars"></a>
+  <a href="https://github.com/datell1357/LazyCopy/stargazers"><img src="https://img.shields.io/github/stars/datell1357/LazyCopy?label=stars&labelColor=555555&color=F0B72F" alt="GitHub stars"></a>
 </p>
 
 <p>
