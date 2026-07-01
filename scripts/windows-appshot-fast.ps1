@@ -7,6 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $CaptureFlashMilliseconds = 120
+$CapturePostFlashDelayMilliseconds = 30
 $CaptureSoundKeepAliveMilliseconds = 700
 
 if (-not $SoundPath) {
@@ -165,6 +166,7 @@ try {
 } catch {
   # Visual feedback is best-effort; keep the capture and paste flow alive.
 }
+Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds
 
 $escaped = [regex]::Escape($AppName)
 $process = Get-Process |

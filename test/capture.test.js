@@ -661,7 +661,9 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.match(script, /System\.Windows\.Forms\.Form/);
   assert.match(script, /Opacity\s*=\s*0\.38/);
   assert.match(script, /\$CaptureFlashMilliseconds = 120/);
+  assert.match(script, /\$CapturePostFlashDelayMilliseconds = 30/);
   assert.match(script, /Start-Sleep -Milliseconds \$CaptureFlashMilliseconds/);
+  assert.match(script, /Start-Sleep -Milliseconds \$CapturePostFlashDelayMilliseconds/);
   assert.doesNotMatch(script, /Start-Sleep -Milliseconds 90/);
   assert.match(script, /ShowInTaskbar\s*=\s*\$false/);
   assert.match(script, /TopMost\s*=\s*\$true/);
@@ -671,6 +673,7 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.ok(flashInvocationIndex !== -1);
   assert.ok(foregroundIndex !== -1);
   assert.ok(flashInvocationIndex < foregroundIndex);
+  assert.ok(script.indexOf("Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds") < foregroundIndex);
   assert.ok(sound.length > 1024);
 });
 
@@ -1013,17 +1016,25 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
 
   assert.match(script, /\[string\]\$LogPath/);
   assert.match(script, /LazyCopy\\appshot-hotkey\.log/);
+  assert.match(script, /PeekMessage/);
+  assert.match(script, /GetAsyncKeyState/);
+  assert.match(script, /\$AsyncPollMilliseconds = 10/);
+  assert.match(script, /\$HotkeyCooldownMilliseconds = 250/);
+  assert.match(script, /Test-LazyCopyShiftSpaceFallbackEnabled/);
+  assert.match(script, /Test-LazyCopyShiftSpaceDown/);
+  assert.match(script, /async-shift-space-fallback-enabled/);
   for (const marker of [
     "start",
     "register-success",
     "listening-success",
     "register-failed",
     "hotkey-fired",
+    'Invoke-LazyCopyHotkeyFire "registered"',
+    'Invoke-LazyCopyHotkeyFire "async-state"',
     "command-launch",
     "command-launched",
     "command-launch-failed",
     "message-loop-ended",
-    "message-loop-failed",
     "listener-failed",
     "listener-stop",
   ]) {
@@ -1044,7 +1055,7 @@ test("Windows hotkey helper keeps listening when an appshot launch fails", async
     script.indexOf("if ($message.message -eq 0x0312"),
     script.indexOf("[LazyCopyHotkey]::TranslateMessage"),
   );
-  assert.match(messageLoopHotkeyBlock, /Start-LazyCopyHotkeyCommand/);
+  assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "registered"/);
   assert.doesNotMatch(messageLoopHotkeyBlock, /Start-Process/);
 });
 
