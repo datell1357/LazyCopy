@@ -77,6 +77,9 @@ function parseFlagArgs(args, defaults = {}) {
       case "--no-paste":
         options.paste = false;
         break;
+      case "--no-start":
+        options.start = false;
+        break;
       case "--fixture-image":
         options.fixtureImage = readFlagValue(args, index, arg);
         index += 1;
@@ -515,6 +518,21 @@ async function runDesktop(options, system) {
 
 function hotkeyCommand(system, options) {
   const appName = options.appName ?? "Codex";
+  if (system.platform === "win32") {
+    return [
+      powershellCommand(system),
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-STA",
+      "-File",
+      path.join(system.repoRoot(), "scripts", "windows-appshot-fast.ps1"),
+      "-Mode",
+      "active-window",
+      "-AppName",
+      appName,
+    ];
+  }
   return [
     process.execPath,
     path.join(system.repoRoot(), "bin", "lazycopy.js"),
@@ -566,6 +584,16 @@ function windowsHotkeyRunArgs(system, options) {
 function windowsWatcherRunArgs(system, options) {
   const listenerCommand = [powershellCommand(system), ...windowsHotkeyRunArgs(system, options)];
   const listenerCommandBase64 = Buffer.from(JSON.stringify(listenerCommand), "utf8").toString("base64");
+  const selfUpdateCommand = [
+    process.execPath,
+    path.join(system.repoRoot(), "scripts", "self-update.js"),
+    "--repo-root",
+    system.repoRoot(),
+  ];
+  if (options.logPath) {
+    selfUpdateCommand.push("--log-path", options.logPath);
+  }
+  const selfUpdateCommandBase64 = Buffer.from(JSON.stringify(selfUpdateCommand), "utf8").toString("base64");
   const args = [
     "-NoProfile",
     "-ExecutionPolicy",
@@ -581,7 +609,16 @@ function windowsWatcherRunArgs(system, options) {
   if (options.logPath) {
     args.push("-LogPath", options.logPath);
   }
-  args.push("-PollSeconds", "2", "-ListenerCommandBase64", listenerCommandBase64);
+  args.push(
+    "-PollSeconds",
+    "2",
+    "-UpdateCheckMinSeconds",
+    "300",
+    "-SelfUpdateCommandBase64",
+    selfUpdateCommandBase64,
+    "-ListenerCommandBase64",
+    listenerCommandBase64,
+  );
   return args;
 }
 
@@ -676,6 +713,7 @@ async function runHotkey(options, system, io, action) {
       const installed = await system.installHotkey(command, {
         platform: system.platform,
         logPath: hotkeyOptions.logPath,
+        start: hotkeyOptions.start !== false,
         startupCommand,
       });
       return {

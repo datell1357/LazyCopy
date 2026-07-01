@@ -28,5 +28,4 @@ if ($null -eq $process) {
 }
 
 [LazyCopyWin32Paste]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
-Start-Sleep -Milliseconds 200
 [System.Windows.Forms.SendKeys]::SendWait("^v")

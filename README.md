@@ -102,13 +102,14 @@ Expected behavior:
 - LazyCopy pastes the image into the Codex input.
 - LazyCopy does not submit the message.
 
-AppShot is only active while Codex Desktop has a visible window. The installer writes a hidden Windows Startup launcher for a small watcher. The watcher keeps running in the background, starts the hotkey listener when Codex is visible, and stops only that listener when Codex disappears.
+AppShot is only active while Codex Desktop has a visible window. The installer writes a hidden Windows Startup launcher for a small watcher. The watcher keeps running in the background, starts the hotkey listener when Codex is visible, and stops only that listener when Codex disappears. When Codex becomes visible, the watcher also starts a hidden self-update check for the installed Git checkout.
 
 This means:
 
 - Codex visible: `Shift+Space` should capture and paste into Codex.
 - Codex closed or not visible: the listener should not hold the hotkey for AppShot.
 - Reopening Codex should make the watcher start the listener again within a short polling window.
+- If the installed checkout has a Git upstream, opening Codex can fast-forward LazyCopy and refresh the installed prompts, skills, commands, and wrappers in the background.
 
 ### dd
 
@@ -190,6 +191,10 @@ The Windows helper scripts run locally through PowerShell. The installer uses Po
 ## Commands
 
 ### Update
+
+Installed Windows checkouts update automatically when Codex Desktop becomes visible and the LazyCopy Git checkout has an upstream branch. The background update uses `git fetch`, `git merge --ff-only @{u}`, and then refreshes the installed LazyCopy surfaces and Startup launcher without starting a second watcher.
+
+Manual update is still available:
 
 ```powershell
 git -C "$HOME\.codex\skills\dd" pull --ff-only
@@ -276,6 +281,11 @@ Marker | Meaning
 --- | ---
 `watcher-start` | Startup watcher launched.
 `codex-visible` | Watcher detected a visible Codex window.
+`update-check-started` | Watcher started a hidden self-update check.
+`update-current` | Installed Git checkout is already at its upstream version.
+`update-applied` | A fast-forward update was applied and local LazyCopy surfaces were refreshed.
+`update-skipped` | Auto-update was skipped because the checkout has no Git upstream or is not a Git worktree.
+`update-failed` | Auto-update could not complete; AppShot continues with the installed version.
 `listener-started` | Hotkey listener started.
 `hotkey-fired` | `Shift+Space` was received.
 `command-launched` | Capture/paste command was launched.

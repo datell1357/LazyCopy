@@ -658,6 +658,9 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.match(script, /Start-LazyCopyCaptureSound/);
   assert.match(script, /Close-LazyCopyCaptureSound/);
   assert.match(script, /assets\\appshot\.mp3/);
+  assert.match(script, /winmm\.dll/);
+  assert.match(script, /mciSendString/);
+  assert.match(script, /type mpegvideo alias/);
   assert.match(script, /System\.Windows\.Forms\.Form/);
   assert.match(script, /Opacity\s*=\s*0\.38/);
   assert.match(script, /\$CaptureFlashMilliseconds = 120/);
@@ -668,12 +671,21 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.match(script, /ShowInTaskbar\s*=\s*\$false/);
   assert.match(script, /TopMost\s*=\s*\$true/);
   assert.match(script, /Invoke-LazyCopyCaptureFlash -Left \$left -Top \$top -Width \$width -Height \$height -SoundPath \$SoundPath/);
+  assert.match(script, /if \(-not \$TargetPath\)/);
+  assert.match(script, /Remove-Item -LiteralPath \$TargetPath/);
   const flashInvocationIndex = script.indexOf("$captureSoundPlayer = Invoke-LazyCopyCaptureFlash");
+  const captureIndex = script.indexOf("$graphics.CopyFromScreen");
   const foregroundIndex = script.indexOf("[LazyCopyWin32AppShot]::SetForegroundWindow");
+  const pasteIndex = script.indexOf('[System.Windows.Forms.SendKeys]::SendWait("^v")');
   assert.ok(flashInvocationIndex !== -1);
+  assert.ok(captureIndex !== -1);
   assert.ok(foregroundIndex !== -1);
-  assert.ok(flashInvocationIndex < foregroundIndex);
+  assert.ok(pasteIndex !== -1);
+  assert.ok(flashInvocationIndex < captureIndex);
+  assert.ok(captureIndex < foregroundIndex);
   assert.ok(script.indexOf("Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds") < foregroundIndex);
+  assert.ok(foregroundIndex < pasteIndex);
+  assert.doesNotMatch(script.slice(foregroundIndex, pasteIndex), /Start-Sleep/);
   assert.ok(sound.length > 1024);
 });
 
@@ -809,9 +821,17 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
     "-PollSeconds",
   ]);
   assert.equal(payload.command[14], "2");
-  assert.equal(payload.command[15], "-ListenerCommandBase64");
+  assert.equal(payload.command[15], "-UpdateCheckMinSeconds");
+  assert.equal(payload.command[16], "300");
+  assert.equal(payload.command[17], "-SelfUpdateCommandBase64");
+  const selfUpdateCommand = JSON.parse(Buffer.from(payload.command[18], "base64").toString("utf8"));
+  assert.equal(selfUpdateCommand[0], process.execPath);
+  assert.match(selfUpdateCommand[1], /self-update\.js$/);
+  assert.deepEqual(selfUpdateCommand.slice(2, 5), ["--repo-root", repoRoot, "--log-path"]);
+  assert.equal(selfUpdateCommand[5], "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log");
+  assert.equal(payload.command[19], "-ListenerCommandBase64");
   assert.equal(payload.command.filter((value) => value === "-Key").length, 1);
-  const listenerCommand = JSON.parse(Buffer.from(payload.command[16], "base64").toString("utf8"));
+  const listenerCommand = JSON.parse(Buffer.from(payload.command[20], "base64").toString("utf8"));
   assert.deepEqual(listenerCommand.slice(0, 6), [
     "powershell.exe",
     "-NoProfile",
@@ -826,20 +846,28 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
     "shift+space",
     "-LogPath",
     "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
-    process.execPath,
+    "powershell.exe",
   ]);
   assert.equal(payload.command.includes("run"), false);
   assert.match(payload.startupCommand, /powershell\.exe/);
   assert.match(payload.startupCommand, /-WindowStyle Hidden/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
-  assert.deepEqual(listenerCommand.slice(-6), [
-    "appshot",
-    "desktop",
-    "--mode",
+  assert.deepEqual(listenerCommand.slice(-11), [
+    "powershell.exe",
+    "-NoProfile",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-STA",
+    "-File",
+    listenerCommand.at(-5),
+    "-Mode",
     "active-window",
-    "--paste-to",
+    "-AppName",
     "Codex",
   ]);
+  assert.match(listenerCommand.at(-5), /windows-appshot-fast\.ps1$/);
+  assert.doesNotMatch(listenerCommand.join("\n"), /bin[/\\]lazycopy\.js/);
+  assert.doesNotMatch(listenerCommand.join("\n"), /appshot\n/);
 });
 
 test("Windows appshot hotkey install starts the watcher process", async (t) => {
@@ -872,7 +900,12 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(installed[0].command[0], "powershell.exe");
   assert.match(installed[0].command[6], /windows-appshot-watch\.ps1$/);
   assert.equal(installed[0].command.includes("-ListenerCommandBase64"), true);
+  assert.equal(installed[0].command.includes("-SelfUpdateCommandBase64"), true);
   assert.equal(installed[0].command.filter((value) => value === "-Key").length, 1);
+  const updateCommand = JSON.parse(
+    Buffer.from(installed[0].command[installed[0].command.indexOf("-SelfUpdateCommandBase64") + 1], "base64").toString("utf8"),
+  );
+  assert.match(updateCommand[1], /self-update\.js$/);
   const listenerCommand = JSON.parse(
     Buffer.from(installed[0].command[installed[0].command.indexOf("-ListenerCommandBase64") + 1], "base64").toString("utf8"),
   );
@@ -884,6 +917,37 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(payload.started, true);
   assert.equal(payload.mode, "watcher");
   assert.deepEqual(payload.command, installed[0].command);
+});
+
+test("Windows appshot hotkey install can refresh Startup without starting a second watcher", async (t) => {
+  const stdout = captureWrites();
+  const installed = [];
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "install", "--app", "Codex", "--no-start", "--json"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        platform: "win32",
+        startupShortcutPath: () => "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+        hotkeyLogPath: () => "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+        async installHotkey(command, options) {
+          installed.push({ command, options });
+          return {
+            startupPath: "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+            started: options.start !== false,
+            logPath: options.logPath,
+          };
+        },
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  assert.equal(installed.length, 1);
+  assert.equal(installed[0].options.start, false);
+  assert.equal(stdout.json().started, false);
 });
 
 test("Windows appshot hotkey dry-run omits log-path args when no log path is available", async (t) => {
@@ -949,12 +1013,17 @@ test("Windows watcher helper manages the visible Codex listener lifecycle", asyn
   assert.match(script, /\[string\]\$Key = "shift\+space"/);
   assert.match(script, /\[string\]\$AppName = "Codex"/);
   assert.match(script, /\[int\]\$PollSeconds = 2/);
+  assert.match(script, /\[int\]\$UpdateCheckMinSeconds = 300/);
   assert.match(script, /\[string\]\$ListenerCommandBase64/);
-  assert.match(script, /FromBase64String\(\$ListenerCommandBase64\)/);
+  assert.match(script, /\[string\]\$SelfUpdateCommandBase64/);
+  assert.match(script, /FromBase64String\(\$Value\)/);
   assert.match(script, /\[regex\]::Escape\(\$AppName\)/);
   assert.match(script, /MainWindowHandle -ne 0/);
   assert.match(script, /ProcessName -match \$escaped/);
   assert.match(script, /MainWindowTitle -match \$escaped/);
+  assert.match(script, /Start-LazyCopySelfUpdate/);
+  assert.match(script, /update-check-started/);
+  assert.match(script, /update-check-skip/);
   assert.match(script, /Stop-Process -Id \$Process\.Id/);
   assert.match(script, /\[Math\]::Min\(\$restartDelay \* 2, \$maxBackoffSeconds\)/);
   assert.match(script, /\$maxBackoffSeconds = 30/);
@@ -974,6 +1043,103 @@ test("Windows watcher helper manages the visible Codex listener lifecycle", asyn
   }
   assert.equal(script.includes(["Stop-Process", "-Name"].join(" ")), false);
   assert.equal(script.includes(["Get-Process", "|", "Stop-Process"].join(" ")), false);
+});
+
+test("self-update fast-forwards and refreshes installed surfaces", async (t) => {
+  const dir = await makeTempDir(t);
+  const fakeBin = path.join(dir, "bin");
+  const fakeRepo = path.join(dir, "repo");
+  const callsPath = path.join(dir, "calls.jsonl");
+  const statePath = path.join(dir, "state.txt");
+  const logPath = path.join(dir, "appshot-hotkey.log");
+  await fs.mkdir(path.join(fakeRepo, ".git"), { recursive: true });
+  await fs.mkdir(path.join(fakeRepo, "scripts"), { recursive: true });
+  await fs.mkdir(fakeBin, { recursive: true });
+
+  const gitShim = path.join(fakeBin, "git");
+  await fs.writeFile(
+    gitShim,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.LAZY_FAKE_CALLS, JSON.stringify({ command: "git", args }) + "\\n");
+const statePath = process.env.LAZY_FAKE_STATE;
+const updated = fs.existsSync(statePath);
+const oldSha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const newSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+if (args.join(" ") === "rev-parse --is-inside-work-tree") {
+  process.stdout.write("true\\n");
+} else if (args.join(" ") === "rev-parse --abbrev-ref --symbolic-full-name @{u}") {
+  process.stdout.write("origin/Implementation\\n");
+} else if (args.join(" ") === "rev-parse HEAD") {
+  process.stdout.write((updated ? newSha : oldSha) + "\\n");
+} else if (args.join(" ") === "rev-parse @{u}") {
+  process.stdout.write(newSha + "\\n");
+} else if (args.join(" ") === "fetch --quiet") {
+} else if (args.join(" ") === "merge --ff-only --quiet @{u}") {
+  fs.writeFileSync(statePath, "updated");
+} else {
+  process.exit(2);
+}
+`,
+  );
+  await fs.chmod(gitShim, 0o755);
+
+  const installUserShim = path.join(fakeRepo, "scripts", "install-user.js");
+  await fs.writeFile(
+    installUserShim,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+fs.appendFileSync(process.env.LAZY_FAKE_CALLS, JSON.stringify({
+  command: "install-user",
+  args: process.argv.slice(2),
+  skipHotkey: process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY,
+  skipHotkeyStart: process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY_START,
+  skipNpmLink: process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK,
+  selfUpdate: process.env.LAZYCOPY_SELF_UPDATE
+}) + "\\n");
+`,
+  );
+
+  const result = spawnSync(
+    process.execPath,
+    [path.join(repoRoot, "scripts", "self-update.js"), "--repo-root", fakeRepo, "--log-path", logPath],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        LAZY_FAKE_CALLS: callsPath,
+        LAZY_FAKE_STATE: statePath,
+        PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`,
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const calls = (await fs.readFile(callsPath, "utf8"))
+    .trim()
+    .split("\n")
+    .map((line) => JSON.parse(line));
+  assert.deepEqual(calls.filter((call) => call.command === "git").map((call) => call.args), [
+    ["rev-parse", "--is-inside-work-tree"],
+    ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+    ["rev-parse", "HEAD"],
+    ["fetch", "--quiet"],
+    ["rev-parse", "@{u}"],
+    ["merge", "--ff-only", "--quiet", "@{u}"],
+    ["rev-parse", "HEAD"],
+  ]);
+  const installUserCall = calls.find((call) => call.command === "install-user");
+  assert.ok(installUserCall);
+  assert.deepEqual(installUserCall.args, []);
+  assert.equal(installUserCall.skipHotkey, undefined);
+  assert.equal(installUserCall.skipHotkeyStart, "1");
+  assert.equal(installUserCall.skipNpmLink, "1");
+  assert.equal(installUserCall.selfUpdate, "1");
+  const log = await fs.readFile(logPath, "utf8");
+  assert.match(log, /update-check-start/);
+  assert.match(log, /update-available from=aaaaaaaaaaaa to=bbbbbbbbbbbb/);
+  assert.match(log, /update-applied from=aaaaaaaaaaaa to=bbbbbbbbbbbb/);
 });
 
 test("Windows appshot hotkey uninstall removes only the Startup launcher", async (t) => {
@@ -1016,13 +1182,18 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
 
   assert.match(script, /\[string\]\$LogPath/);
   assert.match(script, /LazyCopy\\appshot-hotkey\.log/);
-  assert.match(script, /PeekMessage/);
   assert.match(script, /GetAsyncKeyState/);
-  assert.match(script, /\$AsyncPollMilliseconds = 10/);
+  assert.match(script, /WH_KEYBOARD_LL/);
+  assert.match(script, /SetWindowsHookEx/);
+  assert.match(script, /PostThreadMessage/);
+  assert.match(script, /WM_LAZYCOPY_SHIFT_SPACE/);
+  assert.match(script, /return \(IntPtr\)1;/);
   assert.match(script, /\$HotkeyCooldownMilliseconds = 250/);
-  assert.match(script, /Test-LazyCopyShiftSpaceFallbackEnabled/);
-  assert.match(script, /Test-LazyCopyShiftSpaceDown/);
-  assert.match(script, /async-shift-space-fallback-enabled/);
+  assert.match(script, /Test-LazyCopyShiftSpaceHookEnabled/);
+  assert.match(script, /shift-space-hook-installed/);
+  assert.match(script, /shift-space-hook-enabled/);
+  assert.match(script, /hotkey-suppressed/);
+  assert.match(script, /UninstallShiftSpaceHook/);
   for (const marker of [
     "start",
     "register-success",
@@ -1030,7 +1201,7 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
     "register-failed",
     "hotkey-fired",
     'Invoke-LazyCopyHotkeyFire "registered"',
-    'Invoke-LazyCopyHotkeyFire "async-state"',
+    'Invoke-LazyCopyHotkeyFire "keyboard-hook"',
     "command-launch",
     "command-launched",
     "command-launch-failed",
@@ -1052,10 +1223,11 @@ test("Windows hotkey helper keeps listening when an appshot launch fails", async
   assert.match(script, /Start-Process[\s\S]*-PassThru/);
   assert.match(script, /catch \{\s*Write-LazyCopyLog "command-launch-failed/);
   const messageLoopHotkeyBlock = script.slice(
-    script.indexOf("if ($message.message -eq 0x0312"),
+    script.indexOf("if ($message.message -eq $WM_HOTKEY"),
     script.indexOf("[LazyCopyHotkey]::TranslateMessage"),
   );
   assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "registered"/);
+  assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "keyboard-hook"/);
   assert.doesNotMatch(messageLoopHotkeyBlock, /Start-Process/);
 });
 
@@ -1111,5 +1283,11 @@ test("windows paste script does not restore or resize the target app window", as
   for (const script of scripts) {
     assert.doesNotMatch(script, new RegExp(`${showWindowAsync}\\([^\\n]+,\\s*9\\)`));
     assert.doesNotMatch(script, new RegExp(restoreOrResize, "i"));
+    const foregroundIndex = script.indexOf("::SetForegroundWindow");
+    const pasteIndex = script.indexOf('[System.Windows.Forms.SendKeys]::SendWait("^v")');
+    assert.ok(foregroundIndex !== -1);
+    assert.ok(pasteIndex !== -1);
+    assert.ok(foregroundIndex < pasteIndex);
+    assert.doesNotMatch(script.slice(foregroundIndex, pasteIndex), /Start-Sleep/);
   }
 });

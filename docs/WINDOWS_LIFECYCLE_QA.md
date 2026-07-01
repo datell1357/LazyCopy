@@ -51,6 +51,21 @@ Expected:
 
 - The log contains `codex-visible`.
 - The log contains `listener-started`.
+- The log contains one update marker such as `update-check-started`, `update-current`, `update-applied`, or `update-skipped`.
+
+## Auto Update
+
+1. Open Codex Desktop.
+2. Wait up to 10 seconds.
+3. Inspect the log.
+
+Expected:
+
+- The watcher starts the update check in the background when Codex becomes visible.
+- If the LazyCopy checkout has a Git upstream and a fast-forward update is available, the log contains `update-applied`.
+- If it is already current, the log contains `update-current`.
+- If the checkout has no Git upstream, the log contains `update-skipped`.
+- AppShot listener startup is not blocked by the update check.
 
 ## Capture And Paste
 

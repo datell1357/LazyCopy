@@ -3,6 +3,8 @@ param(
   [string]$AppName = "Codex",
   [string]$LogPath,
   [int]$PollSeconds = 2,
+  [int]$UpdateCheckMinSeconds = 300,
+  [string]$SelfUpdateCommandBase64,
   [string]$ListenerCommandBase64,
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$ListenerCommand
 )
@@ -14,6 +16,8 @@ if ($PollSeconds -lt 1) {
 }
 
 $maxBackoffSeconds = 30
+$script:LastUpdateCheckTick = 0
+$script:UpdateProcess = $null
 
 if (-not $LogPath) {
   if ($env:LOCALAPPDATA) {
@@ -32,19 +36,24 @@ function Write-LazyCopyLog([string]$Message) {
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
 }
 
-function ConvertFrom-LazyCopyListenerCommandBase64 {
+function ConvertFrom-LazyCopyCommandBase64([string]$Value, [string]$Label) {
   try {
-    $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ListenerCommandBase64))
+    $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
     $decoded = ConvertFrom-Json -InputObject $json
     return @($decoded | ForEach-Object { [string]$_ })
   } catch {
-    Write-LazyCopyLog "watcher-failed invalid-listener-command message=$($_.Exception.Message)"
+    Write-LazyCopyLog "watcher-failed invalid-$Label-command message=$($_.Exception.Message)"
     throw
   }
 }
 
 if ($ListenerCommandBase64) {
-  $ListenerCommand = ConvertFrom-LazyCopyListenerCommandBase64
+  $ListenerCommand = ConvertFrom-LazyCopyCommandBase64 $ListenerCommandBase64 "listener"
+}
+
+$SelfUpdateCommand = @()
+if ($SelfUpdateCommandBase64) {
+  $SelfUpdateCommand = ConvertFrom-LazyCopyCommandBase64 $SelfUpdateCommandBase64 "update"
 }
 
 function Test-LazyCopyCodexVisible {
@@ -101,6 +110,37 @@ function Stop-LazyCopyListener($Process) {
   Write-LazyCopyListenerExited $Process
 }
 
+function Start-LazyCopySelfUpdate {
+  if ($SelfUpdateCommand.Count -eq 0) {
+    return
+  }
+  if ($null -ne $script:UpdateProcess -and -not $script:UpdateProcess.HasExited) {
+    Write-LazyCopyLog "update-check-skip reason=already-running pid=$($script:UpdateProcess.Id)"
+    return
+  }
+
+  $now = [Environment]::TickCount64
+  if ($script:LastUpdateCheckTick -ne 0) {
+    $elapsedSeconds = [Math]::Floor(($now - $script:LastUpdateCheckTick) / 1000)
+    if ($elapsedSeconds -lt $UpdateCheckMinSeconds) {
+      Write-LazyCopyLog "update-check-skip reason=recent elapsed=$elapsedSeconds"
+      return
+    }
+  }
+
+  $script:LastUpdateCheckTick = $now
+  try {
+    if ($SelfUpdateCommand.Count -eq 1) {
+      $script:UpdateProcess = Start-Process -FilePath $SelfUpdateCommand[0] -WindowStyle Hidden -PassThru
+    } else {
+      $script:UpdateProcess = Start-Process -FilePath $SelfUpdateCommand[0] -ArgumentList $SelfUpdateCommand[1..($SelfUpdateCommand.Count - 1)] -WindowStyle Hidden -PassThru
+    }
+    Write-LazyCopyLog "update-check-started pid=$($script:UpdateProcess.Id)"
+  } catch {
+    Write-LazyCopyLog "update-check-failed message=$($_.Exception.Message)"
+  }
+}
+
 Write-LazyCopyLog "watcher-start key=$Key app=$AppName poll=$PollSeconds"
 
 $listenerProcess = $null
@@ -114,6 +154,7 @@ try {
     if ($visible -and -not $wasVisible) {
       Write-LazyCopyLog "codex-visible app=$AppName"
       $restartDelay = $PollSeconds
+      Start-LazyCopySelfUpdate
     } elseif (-not $visible -and $wasVisible) {
       Write-LazyCopyLog "codex-hidden app=$AppName"
     }

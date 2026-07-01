@@ -173,7 +173,7 @@ installClaudeCommands();
 if (isWindows()) {
   installWindowsUserBinWrappers();
   if (process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY !== "1") {
-    run(process.execPath, [
+    const hotkeyInstallArgs = [
       path.join(repoRoot, "bin", "lazycopy.js"),
       "appshot",
       "hotkey",
@@ -182,7 +182,11 @@ if (isWindows()) {
       "shift+space",
       "--app",
       "Codex",
-    ]);
+    ];
+    if (process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY_START === "1") {
+      hotkeyInstallArgs.push("--no-start");
+    }
+    run(process.execPath, hotkeyInstallArgs);
   }
   if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
     runNpmLink({ optional: true });
