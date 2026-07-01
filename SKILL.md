@@ -1,3 +1,10 @@
+---
+name: dd
+description: Drop the current OS clipboard text or image into Codex through LazyCopy.
+argument-hint: "[request about the clipboard, optional]"
+user-invocable: true
+---
+
 # dd
 
 Use this skill when the user wants to send the latest clipboard content to an AI coding agent.

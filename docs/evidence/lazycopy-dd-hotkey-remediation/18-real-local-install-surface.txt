@@ -1,0 +1,58 @@
+$ codex skill/prompts/claude command surface
+present /Users/yeoreum/.codex/skills/dd/SKILL.md
+---
+name: dd
+description: Drop the current OS clipboard text or image into Codex through LazyCopy.
+argument-hint: "[request about the clipboard, optional]"
+user-invocable: true
+---
+
+# dd
+present /Users/yeoreum/.codex/skills/ㅇㅇ/SKILL.md
+---
+name: ㅇㅇ
+description: Hangul-mode alias for dd. Drop the current OS clipboard text or image into Codex through LazyCopy.
+argument-hint: "[클립보드에 대한 요청, 선택]"
+user-invocable: true
+---
+
+# ㅇㅇ
+present /Users/yeoreum/.codex/prompts/dd.md
+# dd
+
+Use the latest clipboard content as context for the user's message in Codex.
+
+Run LazyCopy through the short local CLI:
+
+```sh
+dd "<user message>"
+present /Users/yeoreum/.codex/prompts/ㅇㅇ.md
+# dd
+
+Use the latest clipboard content as context for the user's message in Codex.
+
+Run LazyCopy through the short local CLI:
+
+```sh
+dd "<user message>"
+present /Users/yeoreum/.claude/commands/dd.md
+---
+name: dd
+description: Drop the current OS clipboard text or image into Claude Code context through LazyCopy.
+argument-hint: "[request about the clipboard, optional]"
+allowed-tools:
+  - Bash
+  - Read
+---
+present /Users/yeoreum/.claude/commands/ㅇㅇ.md
+---
+name: ㅇㅇ
+description: Hangul-mode alias for /dd. Drop the current OS clipboard text or image into Claude Code context through LazyCopy.
+argument-hint: "[클립보드에 대한 요청, 선택]"
+allowed-tools:
+  - Bash
+  - Read
+---
+$ dd bin resolution
+/opt/homebrew/bin/dd
+/opt/homebrew/bin/ㅇㅇ

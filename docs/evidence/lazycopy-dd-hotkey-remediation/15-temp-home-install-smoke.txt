@@ -1,0 +1,30 @@
+TEMP=/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2
+LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, and Claude Code /ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.
+$ installed files
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.claude/commands/dd.md
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.claude/commands/ㅇㅇ.md
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.codex/prompts/dd.md
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.codex/prompts/ㅇㅇ.md
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.codex/skills/dd
+/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2/.codex/skills/ㅇㅇ/SKILL.md
+$ dd skill frontmatter
+---
+name: dd
+description: Drop the current OS clipboard text or image into Codex through LazyCopy.
+argument-hint: "[request about the clipboard, optional]"
+user-invocable: true
+---
+
+# dd
+$ Korean alias skill frontmatter
+---
+name: ㅇㅇ
+description: Hangul-mode alias for dd. Drop the current OS clipboard text or image into Codex through LazyCopy.
+argument-hint: "[클립보드에 대한 요청, 선택]"
+user-invocable: true
+---
+
+# ㅇㅇ
+$ alias dir symlink check
+alias_is_real_dir
+cleanup=removed /var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T//lazycopy-install-smoke.skdkq2

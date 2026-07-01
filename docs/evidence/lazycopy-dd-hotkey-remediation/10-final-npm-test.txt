@@ -1,0 +1,40 @@
+
+> lazycopy@0.2.0 test
+> node --test
+
+✔ Codex skill sources expose dd and Korean alias as user-invocable skills (3.79375ms)
+✔ createCaptureArtifact writes manifest when given a PNG fixture (9.179917ms)
+✔ createTextArtifact writes clipboard text for prompt use (2.625083ms)
+✔ clipboard command falls back to text when no clipboard image exists (2.94575ms)
+✔ dd codex dry-run builds resume argv from clipboard text (3.097291ms)
+✔ dd codex dry-run attaches clipboard image for AI vision (3.108583ms)
+✔ dd accepts a plain message without flags (1.709583ms)
+✔ Korean shorthand ㅇㅇ maps to dd (1.905708ms)
+✔ Codex dd aliases map to the same default dd behavior (5.474042ms)
+✔ package exposes short terminal commands without lazycopy prefix (0.327083ms)
+✔ installer exposes Claude Code slash commands for dd (0.492083ms)
+✔ installer smoke installs Codex skills, prompts, and Claude commands in a temp HOME (64.94ms)
+✔ installer replaces old Korean skill symlink without overwriting root dd skill (67.960208ms)
+✔ dd claude dry-run builds print argv from clipboard text (3.164458ms)
+✔ dd claude dry-run exposes clipboard image artifact directory (2.789166ms)
+✔ appshot desktop captures the front window, copies it, targets Codex, and cleans up (2.918833ms)
+✔ appshot desktop --keep preserves the capture artifact (2.126084ms)
+✔ appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot (0.36475ms)
+✔ appshot hotkey install respects an explicit custom key (0.091416ms)
+✔ Windows appshot hotkey install dry-run emits a startup listener command (0.15625ms)
+✔ Windows appshot hotkey dry-run omits log-path args when no log path is available (0.070292ms)
+✔ Windows hotkey helper defaults to Shift+Space when run directly (0.500834ms)
+✔ Windows hotkey helper exposes a stable log path and lifecycle markers (0.185083ms)
+✔ lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces (68.109708ms)
+✔ launchAgentPlist escapes argument values (0.138333ms)
+✔ windows paste script does not restore or resize the target app window (0.610459ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 401.303125
+
+EXIT=0

@@ -113,6 +113,10 @@ function parseFlagArgs(args, defaults = {}) {
         options.key = readFlagValue(args, index, arg);
         index += 1;
         break;
+      case "--log-path":
+        options.logPath = readFlagValue(args, index, arg);
+        index += 1;
+        break;
       case "-h":
       case "--help":
         options.help = true;
@@ -491,7 +495,7 @@ function hotkeyCommand(system, options) {
 }
 
 function hotkeyListenerCommand(system, options) {
-  return [
+  const command = [
     process.execPath,
     path.join(system.repoRoot(), "bin", "lazycopy.js"),
     "appshot",
@@ -502,10 +506,14 @@ function hotkeyListenerCommand(system, options) {
     "--app",
     options.appName ?? "Codex",
   ];
+  if (options.logPath) {
+    command.push("--log-path", options.logPath);
+  }
+  return command;
 }
 
 function windowsHotkeyRunArgs(system, options) {
-  return [
+  const args = [
     "-NoProfile",
     "-ExecutionPolicy",
     "Bypass",
@@ -514,8 +522,12 @@ function windowsHotkeyRunArgs(system, options) {
     path.join(system.repoRoot(), "scripts", "windows-hotkey.ps1"),
     "-Key",
     options.key,
-    ...hotkeyCommand(system, options),
   ];
+  if (options.logPath) {
+    args.push("-LogPath", options.logPath);
+  }
+  args.push(...hotkeyCommand(system, options));
+  return args;
 }
 
 function powershellCommand(system) {
@@ -568,7 +580,8 @@ function escapeXml(text) {
 
 async function runHotkey(options, system, io, action) {
   const key = options.key ?? DEFAULT_HOTKEY;
-  const hotkeyOptions = { ...options, key };
+  const logPath = options.logPath ?? system.hotkeyLogPath?.();
+  const hotkeyOptions = { ...options, key, logPath };
 
   if (action === "run") {
     if (system.platform === "win32") {
@@ -594,11 +607,15 @@ async function runHotkey(options, system, io, action) {
         return {
           startupPath: system.startupShortcutPath?.(),
           command,
+          logPath: hotkeyOptions.logPath,
           key: hotkeyOptions.key,
           appName: hotkeyOptions.appName ?? "Codex",
         };
       }
-      const installed = await system.installHotkey(command, { platform: system.platform });
+      const installed = await system.installHotkey(command, {
+        platform: system.platform,
+        logPath: hotkeyOptions.logPath,
+      });
       return {
         ...installed,
         command,

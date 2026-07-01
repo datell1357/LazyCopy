@@ -1,0 +1,34 @@
+Usage:
+  dd [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
+  ㅇㅇ [message] [--agent codex|claude] [--prefer image|text] [--dry-run] [--keep]
+  /dd <message>      Codex Desktop or Codex CLI message input.
+  $dd <message>      Codex skill invocation.
+  /ㅇㅇ <message>     Codex Desktop or Codex CLI message input.
+  $ㅇㅇ <message>     Codex skill invocation.
+  lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
+  lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]
+  lazycopy appshot hotkey run [--key shift+space] [--app Codex]
+  lazycopy appshot hotkey install [--key shift+space] [--app Codex] [--dry-run]
+
+Commands:
+  appshot    Capture the current window and hand it to Codex Desktop.
+  dd         Package the latest clipboard image or text for Codex CLI or Claude Code.
+  ㅇㅇ       Same as dd for Korean natural-language use.
+
+Options:
+  --json                 Print machine-readable JSON.
+  --fixture-image <png>  PNG file to copy into the artifact.
+  --output-root <dir>    Directory where artifacts are written. Defaults to /Users/yeoreum/.lazycopy/captures.
+  --mode <mode>          active-window, region, or fullscreen.
+  --prefer <kind>        image or text for clipboard reads.
+  --agent <agent>        codex or claude for dd. Defaults to codex.
+  --resume last          Resume or continue the latest CLI-agent session.
+  --prompt <text>        Prompt sent with clipboard content.
+  --dry-run              Print what would run without launching an agent or installing.
+  --keep                 Keep transient artifacts after a successful handoff.
+  --paste-to <app>       App name to activate and paste into. Defaults to Codex.
+  --no-paste             Capture and copy only; do not activate an app.
+  --key <shortcut>       Hotkey such as shift+space or control+space.
+  -h, --help             Show this help.
+
+EXIT=0

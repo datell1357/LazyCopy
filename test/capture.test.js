@@ -38,6 +38,20 @@ function captureWrites() {
   };
 }
 
+function skillFrontmatter(source) {
+  const match = source.match(/^---\n([\s\S]*?)\n---\n/);
+  assert.ok(match, "skill must start with YAML frontmatter");
+  return Object.fromEntries(
+    match[1].split("\n").map((line) => {
+      const separator = line.indexOf(":");
+      assert.notEqual(separator, -1, `frontmatter line must contain a colon: ${line}`);
+      const key = line.slice(0, separator).trim();
+      const value = line.slice(separator + 1).trim().replace(/^"|"$/g, "");
+      return [key, value];
+    }),
+  );
+}
+
 function fakeSystem(t, overrides = {}) {
   const calls = [];
   const tempRootPromise = makeTempDir(t);
@@ -74,6 +88,25 @@ function fakeSystem(t, overrides = {}) {
     ...overrides,
   };
 }
+
+test("Codex skill sources expose dd and Korean alias as user-invocable skills", async () => {
+  const ddSkill = await fs.readFile(path.join(repoRoot, "SKILL.md"), "utf8");
+  const shorthandSkill = await fs.readFile(path.join(repoRoot, "skills", "ㅇㅇ", "SKILL.md"), "utf8");
+  const dd = skillFrontmatter(ddSkill);
+
+  assert.equal(dd.name, "dd");
+  assert.equal(dd["user-invocable"], "true");
+  assert.equal(dd["argument-hint"], "[request about the clipboard, optional]");
+  assert.match(ddSkill, /use Codex by default/);
+  assert.match(ddSkill, /Claude only when the user explicitly asks for Claude/);
+  assert.match(ddSkill, /Do not expose AppShot as a skill command/);
+
+  const shorthand = skillFrontmatter(shorthandSkill);
+  assert.equal(shorthand.name, "ㅇㅇ");
+  assert.equal(shorthand["user-invocable"], "true");
+  assert.match(shorthandSkill, /same behavior as `dd`/);
+  assert.match(shorthandSkill, /Do not expose AppShot as a skill command/);
+});
 
 test("createCaptureArtifact writes manifest when given a PNG fixture", async (t) => {
   const { fixture } = await writeFixture(t);
@@ -310,6 +343,69 @@ test("installer exposes Claude Code slash commands for dd", async () => {
   }
 });
 
+test("installer smoke installs Codex skills, prompts, and Claude commands in a temp HOME", async (t) => {
+  const home = await makeTempDir(t);
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      LAZYCOPY_INSTALL_SKIP_NPM_LINK: "1",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.match(install.stdout, /\$dd/);
+  assert.match(install.stdout, /\$ㅇㅇ/);
+
+  const ddSkillPath = path.join(home, ".codex", "skills", "dd", "SKILL.md");
+  const shorthandSkillDir = path.join(home, ".codex", "skills", "ㅇㅇ");
+  const shorthandSkillPath = path.join(home, ".codex", "skills", "ㅇㅇ", "SKILL.md");
+  const ddSkill = await fs.readFile(ddSkillPath, "utf8");
+  const shorthandSkill = await fs.readFile(shorthandSkillPath, "utf8");
+  assert.equal(skillFrontmatter(ddSkill).name, "dd");
+  assert.equal(skillFrontmatter(ddSkill)["user-invocable"], "true");
+  assert.equal(skillFrontmatter(shorthandSkill).name, "ㅇㅇ");
+  assert.equal(skillFrontmatter(shorthandSkill)["user-invocable"], "true");
+  assert.equal((await fs.lstat(shorthandSkillDir)).isSymbolicLink(), false);
+  assert.equal((await fs.lstat(shorthandSkillPath)).isFile(), true);
+
+  await fs.access(path.join(home, ".codex", "prompts", "dd.md"));
+  await fs.access(path.join(home, ".codex", "prompts", "ㅇㅇ.md"));
+  await fs.access(path.join(home, ".claude", "commands", "dd.md"));
+  await fs.access(path.join(home, ".claude", "commands", "ㅇㅇ.md"));
+});
+
+test("installer replaces old Korean skill symlink without overwriting root dd skill", async (t) => {
+  const home = await makeTempDir(t);
+  const aliasParent = path.join(home, ".codex", "skills");
+  const aliasDir = path.join(aliasParent, "ㅇㅇ");
+  await fs.mkdir(aliasParent, { recursive: true });
+  await fs.symlink(repoRoot, aliasDir, "dir");
+  const rootSkillBefore = await fs.readFile(path.join(repoRoot, "SKILL.md"), "utf8");
+
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      LAZYCOPY_INSTALL_SKIP_NPM_LINK: "1",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.equal(await fs.readFile(path.join(repoRoot, "SKILL.md"), "utf8"), rootSkillBefore);
+  assert.equal((await fs.lstat(aliasDir)).isSymbolicLink(), false);
+  const aliasSkill = await fs.readFile(path.join(aliasDir, "SKILL.md"), "utf8");
+  assert.equal(skillFrontmatter(aliasSkill).name, "ㅇㅇ");
+});
+
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
@@ -483,6 +579,7 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
       system: fakeSystem(t, {
         platform: "win32",
         startupShortcutPath: () => "C:\\Users\\tester\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+        hotkeyLogPath: () => "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
       }),
     },
   );
@@ -491,7 +588,9 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
   const payload = stdout.json();
   assert.equal(payload.ok, true);
   assert.match(payload.startupPath, /LazyCopy-AppShot-Hotkey\.cmd$/);
-  assert.deepEqual(payload.command.slice(-7), [
+  assert.equal(payload.key, "shift+space");
+  assert.match(payload.logPath, /LazyCopy\\appshot-hotkey\.log$/);
+  assert.deepEqual(payload.command.slice(-9), [
     "appshot",
     "hotkey",
     "run",
@@ -499,7 +598,30 @@ test("Windows appshot hotkey install dry-run emits a startup listener command", 
     "shift+space",
     "--app",
     "Codex",
+    "--log-path",
+    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
   ]);
+});
+
+test("Windows appshot hotkey dry-run omits log-path args when no log path is available", async (t) => {
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    ["appshot", "hotkey", "install", "--app", "Codex", "--dry-run", "--json"],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t, {
+        platform: "win32",
+        startupShortcutPath: () => "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+      }),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.command.includes("--log-path"), false);
+  assert.equal(payload.command.some((value) => value == null || value === "undefined"), false);
 });
 
 test("Windows hotkey helper defaults to Shift+Space when run directly", async () => {
@@ -510,6 +632,26 @@ test("Windows hotkey helper defaults to Shift+Space when run directly", async ()
 
   assert.match(script, /\[string\]\$Key = "shift\+space"/);
   assert.doesNotMatch(script, /\[string\]\$Key = "control\+space"/);
+});
+
+test("Windows hotkey helper exposes a stable log path and lifecycle markers", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-hotkey.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /\[string\]\$LogPath/);
+  assert.match(script, /LazyCopy\\appshot-hotkey\.log/);
+  for (const marker of [
+    "start",
+    "register-success",
+    "listening-success",
+    "register-failed",
+    "hotkey-fired",
+    "command-launch",
+  ]) {
+    assert.match(script, new RegExp(marker));
+  }
 });
 
 test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces", async () => {

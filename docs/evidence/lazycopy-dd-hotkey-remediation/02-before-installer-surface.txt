@@ -1,0 +1,31 @@
+TEMP=/tmp/lazycopy-before-install.rbeGu5
+$ HOME=$tmp PATH=$fakebin:$PATH node scripts/install-user.js
+fake npm link
+LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, and Claude Code /ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.
+$ find installed surfaces
+/tmp/lazycopy-before-install.rbeGu5/.claude/commands/dd.md
+/tmp/lazycopy-before-install.rbeGu5/.claude/commands/ㅇㅇ.md
+/tmp/lazycopy-before-install.rbeGu5/.codex/prompts/dd.md
+/tmp/lazycopy-before-install.rbeGu5/.codex/prompts/ㅇㅇ.md
+/tmp/lazycopy-before-install.rbeGu5/.codex/skills/dd
+/tmp/lazycopy-before-install.rbeGu5/.codex/skills/ㅇㅇ
+$ dd frontmatter head
+# dd
+
+Use this skill when the user wants to send the latest clipboard content to an AI coding agent.
+
+Trigger this skill for:
+
+- `$dd <message>`
+- `/dd <message>`
+$ ㅇㅇ frontmatter head
+# dd
+
+Use this skill when the user wants to send the latest clipboard content to an AI coding agent.
+
+Trigger this skill for:
+
+- `$dd <message>`
+- `/dd <message>`
+$ cleanup
+removed /tmp/lazycopy-before-install.rbeGu5

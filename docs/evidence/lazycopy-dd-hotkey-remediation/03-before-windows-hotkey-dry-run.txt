@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "startupPath": "C:\\Users\\tester\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+  "command": [
+    "/opt/homebrew/Cellar/node@24/24.18.0/bin/node",
+    "/Users/yeoreum/Documents/LazyCopy/bin/lazycopy.js",
+    "appshot",
+    "hotkey",
+    "run",
+    "--key",
+    "shift+space",
+    "--app",
+    "Codex"
+  ],
+  "key": "shift+space",
+  "appName": "Codex"
+}
+
+EXIT=0

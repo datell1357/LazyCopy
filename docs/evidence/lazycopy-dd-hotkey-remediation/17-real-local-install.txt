@@ -1,0 +1,11 @@
+
+> lazycopy@0.2.0 install-user
+> node scripts/install-user.js
+
+
+added 1 package, and audited 3 packages in 142ms
+
+found 0 vulnerabilities
+LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, and Claude Code /ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.
+
+EXIT=0

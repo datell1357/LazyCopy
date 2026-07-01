@@ -1,0 +1,7 @@
+$ git branch --show-current
+Implementation
+$ git status --short
+ M README.md
+?? docs/evidence/lazycopy-dd-hotkey-remediation/
+$ test ! -e .omo
+pass

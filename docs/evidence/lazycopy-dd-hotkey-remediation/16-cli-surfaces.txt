@@ -1,0 +1,99 @@
+## windows hotkey install dry-run
+exit=0
+{
+  "ok": true,
+  "startupPath": "C:\\Users\\tester\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+  "command": [
+    "/opt/homebrew/Cellar/node@24/24.18.0/bin/node",
+    "/Users/yeoreum/Documents/LazyCopy/bin/lazycopy.js",
+    "appshot",
+    "hotkey",
+    "run",
+    "--key",
+    "shift+space",
+    "--app",
+    "Codex",
+    "--log-path",
+    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log"
+  ],
+  "logPath": "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+  "key": "shift+space",
+  "appName": "Codex"
+}
+hotkey_has_shift=true
+hotkey_has_log=true
+command_has_undefined=false
+## windows hotkey install dry-run without logPath provider
+exit=0
+{
+  "ok": true,
+  "startupPath": "C:\\Users\\tester\\Startup\\LazyCopy-AppShot-Hotkey.cmd",
+  "command": [
+    "/opt/homebrew/Cellar/node@24/24.18.0/bin/node",
+    "/Users/yeoreum/Documents/LazyCopy/bin/lazycopy.js",
+    "appshot",
+    "hotkey",
+    "run",
+    "--key",
+    "shift+space",
+    "--app",
+    "Codex"
+  ],
+  "key": "shift+space",
+  "appName": "Codex"
+}
+no_log_command_has_log_arg=false
+no_log_command_has_undefined=false
+## dd text dry-run
+exit=0
+{
+  "ok": true,
+  "artifact": {
+    "kind": "text",
+    "artifactDir": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/60561a28-bb08-4e42-b493-837f723b04cb",
+    "manifestPath": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/60561a28-bb08-4e42-b493-837f723b04cb/manifest.json",
+    "textPath": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/60561a28-bb08-4e42-b493-837f723b04cb/clipboard.txt"
+  },
+  "cleanup": {
+    "kept": true,
+    "reason": "dry-run"
+  },
+  "dd": {
+    "agent": "codex",
+    "command": "codex",
+    "args": [
+      "resume",
+      "--last",
+      "<prompt-with-clipboard-text:redacted>"
+    ]
+  }
+}
+text_redacted=true
+## dd image dry-run
+exit=0
+{
+  "ok": true,
+  "artifact": {
+    "kind": "image",
+    "artifactDir": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/01c0a749-b9dc-4546-ad16-6ba69eedf14c",
+    "imagePath": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/01c0a749-b9dc-4546-ad16-6ba69eedf14c/capture.png",
+    "manifestPath": "/var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db/20260701/01c0a749-b9dc-4546-ad16-6ba69eedf14c/manifest.json"
+  },
+  "cleanup": {
+    "kept": true,
+    "reason": "dry-run"
+  },
+  "dd": {
+    "agent": "codex",
+    "command": "codex",
+    "args": [
+      "resume",
+      "--last",
+      "-i",
+      "capture.png",
+      "Read this image"
+    ]
+  }
+}
+image_uses_codex_i=true
+cleanup=removed /var/folders/9w/thp6pq292t327z1q3r5vg9m00000gn/T/lazycopy-cli-surface.2aC9db

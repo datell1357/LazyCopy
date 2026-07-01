@@ -108,6 +108,11 @@ function startupShortcutPath() {
   );
 }
 
+function hotkeyLogPath() {
+  const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+  return path.join(localAppData, "LazyCopy", "appshot-hotkey.log");
+}
+
 function quoteCmdArg(arg) {
   return `"${String(arg).replace(/"/g, '""')}"`;
 }
@@ -115,11 +120,12 @@ function quoteCmdArg(arg) {
 async function installHotkey(command, options = {}) {
   requireWindows(options.platform);
   const startupPath = startupShortcutPath();
+  const logPath = options.logPath ?? hotkeyLogPath();
   await ensureParent(startupPath);
   const commandLine = command.map(quoteCmdArg).join(" ");
   await fs.writeFile(
     startupPath,
-    `@echo off\r\nstart "LazyCopy AppShot Hotkey" /min ${commandLine}\r\n`,
+    `@echo off\r\nrem LazyCopy AppShot hotkey log: ${logPath}\r\nstart "LazyCopy AppShot Hotkey" /min ${commandLine}\r\n`,
   );
 
   const child = spawn(command[0], command.slice(1), {
@@ -128,7 +134,7 @@ async function installHotkey(command, options = {}) {
     windowsHide: true,
   });
   child.unref();
-  return { startupPath, started: true };
+  return { startupPath, started: true, logPath };
 }
 
 async function uninstallHotkey(options = {}) {
@@ -141,6 +147,7 @@ async function uninstallHotkey(options = {}) {
 module.exports = {
   captureScreenToFile,
   copyImageToClipboard,
+  hotkeyLogPath,
   installHotkey,
   pasteIntoApp,
   powershellBin,
