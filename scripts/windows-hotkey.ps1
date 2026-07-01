@@ -1,6 +1,7 @@
 param(
   [string]$Key = "shift+space",
   [string]$LogPath,
+  [string]$CommandBase64,
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$Command
 )
 
@@ -24,6 +25,21 @@ function Write-LazyCopyLog([string]$Message) {
 }
 
 Write-LazyCopyLog "start key=$Key"
+
+function ConvertFrom-LazyCopyCommandBase64([string]$Value) {
+  try {
+    $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
+    $decoded = ConvertFrom-Json -InputObject $json
+    return @($decoded | ForEach-Object { [string]$_ })
+  } catch {
+    Write-LazyCopyLog "failed invalid-command-base64 message=$($_.Exception.Message)"
+    throw
+  }
+}
+
+if ($CommandBase64) {
+  $Command = ConvertFrom-LazyCopyCommandBase64 $CommandBase64
+}
 
 if ($Command.Count -eq 0) {
   Write-LazyCopyLog "failed missing-command"

@@ -34,16 +34,20 @@ function isWindows() {
   return installPlatform() === "win32";
 }
 
-function resolveRunCommand(command, platform = installPlatform()) {
+function resolveRunInvocation(command, args, platform = installPlatform()) {
   if (platform === "win32" && command === "npm") {
-    return "npm.cmd";
+    return {
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", "npm.cmd", ...args],
+    };
   }
-  return command;
+  return { command, args };
 }
 
 function run(command, args, options = {}) {
   const platform = options.platform ?? installPlatform();
-  const result = spawnSync(resolveRunCommand(command, platform), args, {
+  const invocation = resolveRunInvocation(command, args, platform);
+  const result = spawnSync(invocation.command, invocation.args, {
     cwd: options.cwd ?? repoRoot,
     stdio: "inherit",
     shell: false,

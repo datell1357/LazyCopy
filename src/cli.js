@@ -568,6 +568,7 @@ function hotkeyListenerCommand(system, options) {
 }
 
 function windowsHotkeyRunArgs(system, options) {
+  const commandBase64 = Buffer.from(JSON.stringify(hotkeyCommand(system, options)), "utf8").toString("base64");
   const args = [
     "-NoProfile",
     "-ExecutionPolicy",
@@ -581,7 +582,7 @@ function windowsHotkeyRunArgs(system, options) {
   if (options.logPath) {
     args.push("-LogPath", options.logPath);
   }
-  args.push(...hotkeyCommand(system, options));
+  args.push("-CommandBase64", commandBase64);
   return args;
 }
 
