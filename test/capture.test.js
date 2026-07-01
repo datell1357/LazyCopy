@@ -950,7 +950,7 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
 test("Windows hotkey install starts the written Startup launcher", async () => {
   const source = await fs.readFile(path.join(repoRoot, "src", "windows.js"), "utf8");
 
-  assert.match(source, /spawn\(process\.env\.ComSpec \|\| "cmd\.exe", \["\/d", "\/s", "\/c", "call", startupPath\]/);
+  assert.match(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
   assert.doesNotMatch(source, /spawn\(command\[0\], command\.slice\(1\)/);
 });
 
