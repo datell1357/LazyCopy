@@ -135,40 +135,15 @@ function quoteCmdArg(arg) {
   return `"${String(arg).replace(/"/g, '""')}"`;
 }
 
-function quotePowerShellString(arg) {
-  return `'${String(arg).replace(/'/g, "''")}'`;
-}
-
-function quoteWindowsProcessArgument(arg) {
-  const value = String(arg);
-  if (value.length === 0) {
-    return '""';
-  }
-  if (!/[\s"]/.test(value)) {
-    return value;
-  }
-  return `"${value.replace(/"/g, '\\"')}"`;
-}
-
 function hiddenHotkeyStartupCommand(command, options = {}) {
-  const powershell = options.powershell ?? powershellBin();
-  const filePath = quotePowerShellString(command[0]);
-  const argumentLine = command.slice(1).map(quoteWindowsProcessArgument).join(" ");
-  const script = [
-    "$ErrorActionPreference = 'Stop'",
-    `Start-Process -WindowStyle Hidden -FilePath ${filePath} -ArgumentList ${quotePowerShellString(argumentLine)}`,
-  ].join("\r\n");
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
-  return [
-    quoteCmdArg(powershell),
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-WindowStyle",
-    "Hidden",
-    "-EncodedCommand",
-    encoded,
-  ].join(" ");
+  const nodePath = options.nodePath ?? process.execPath;
+  const launcherPath = options.launcherPath ?? scriptPath("start-windows-appshot-watch.js");
+  const commandBase64 = Buffer.from(JSON.stringify(command), "utf8").toString("base64");
+  const args = [quoteCmdArg(nodePath), quoteCmdArg(launcherPath), commandBase64];
+  if (options.logPath) {
+    args.push(quoteCmdArg(options.logPath));
+  }
+  return args.join(" ");
 }
 
 async function installHotkey(command, options = {}) {
@@ -186,9 +161,10 @@ async function installHotkey(command, options = {}) {
     return { startupPath, started: false, logPath };
   }
 
-  const child = spawn(process.env.ComSpec || "cmd.exe", ["/d", "/s", "/c", `call "${startupPath.replace(/"/g, '""')}"`], {
+  const child = spawn(command[0], command.slice(1), {
     detached: true,
     stdio: "ignore",
+    shell: false,
     windowsHide: true,
   });
   child.unref();

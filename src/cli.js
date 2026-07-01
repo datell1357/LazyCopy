@@ -702,6 +702,7 @@ async function runHotkey(options, system, io, action) {
       const powershell = powershellCommand(system);
       const command = [powershell, ...windowsWatcherRunArgs(system, hotkeyOptions)];
       const startupCommand = hiddenHotkeyStartupCommand(command, {
+        logPath: hotkeyOptions.logPath,
         powershell,
       });
       if (options.dryRun) {
