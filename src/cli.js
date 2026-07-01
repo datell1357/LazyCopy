@@ -11,20 +11,19 @@ const {
 const { LazyCopyError } = require("./errors");
 const macos = require("./macos");
 
+const DEFAULT_HOTKEY = "control+space";
+const VALID_AGENTS = new Set(["codex", "claude"]);
+
 const usage = `Usage:
-  lazycopy capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
-  lazycopy clipboard --json [--output-root <dir>] [--prefer image|text]
-  lazycopy codex --resume last [--prompt <text>] [--dry-run] [--output-root <dir>]
-  lazycopy desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json]
-  lazycopy hotkey run --key command+shift+l [--app Codex]
-  lazycopy hotkey install --key command+shift+l [--app Codex] [--dry-run]
+  lazycopy appshot capture --json [--fixture-image <png>] [--output-root <dir>] [--mode active-window|region|fullscreen]
+  lazycopy appshot desktop [--mode active-window|region|fullscreen] [--paste-to Codex] [--json] [--keep]
+  lazycopy appshot hotkey run [--key control+space] [--app Codex]
+  lazycopy appshot hotkey install [--key control+space] [--app Codex] [--dry-run]
+  lazycopy dd --agent codex|claude [--prefer image|text] [--prompt <text>] [--dry-run] [--keep]
 
 Commands:
-  capture    Create a capture artifact from a PNG fixture or macOS screen capture.
-  clipboard  Package the latest clipboard image or text for an AI agent.
-  codex      Resume Codex CLI with the latest clipboard attached or included.
-  desktop    Capture the current window, copy it, and paste it into Codex Desktop.
-  hotkey     Run or install a macOS global shortcut for the desktop command.
+  appshot    Capture the current window and hand it to Codex Desktop.
+  dd         Package the latest clipboard image or text for Codex CLI or Claude Code.
 
 Options:
   --json                 Print machine-readable JSON.
@@ -32,12 +31,14 @@ Options:
   --output-root <dir>    Directory where artifacts are written. Defaults to ${DEFAULT_OUTPUT_ROOT}.
   --mode <mode>          active-window, region, or fullscreen.
   --prefer <kind>        image or text for clipboard reads.
-  --resume last          Resume the latest Codex CLI session.
+  --agent <agent>        codex or claude for dd. Defaults to codex.
+  --resume last          Resume or continue the latest CLI-agent session.
   --prompt <text>        Prompt sent with clipboard content.
-  --dry-run              Print what would run without launching Codex or installing.
+  --dry-run              Print what would run without launching an agent or installing.
+  --keep                 Keep transient artifacts after a successful handoff.
   --paste-to <app>       App name to activate and paste into. Defaults to Codex.
   --no-paste             Capture and copy only; do not activate an app.
-  --key <shortcut>       Hotkey such as command+shift+l or control+option+c.
+  --key <shortcut>       Hotkey such as control+space or control+option+l.
   -h, --help             Show this help.
 `;
 
@@ -62,6 +63,9 @@ function parseFlagArgs(args, defaults = {}) {
       case "--dry-run":
         options.dryRun = true;
         break;
+      case "--keep":
+        options.keep = true;
+        break;
       case "--no-paste":
         options.paste = false;
         break;
@@ -79,6 +83,10 @@ function parseFlagArgs(args, defaults = {}) {
         break;
       case "--prefer":
         options.prefer = readFlagValue(args, index, arg);
+        index += 1;
+        break;
+      case "--agent":
+        options.agent = readFlagValue(args, index, arg);
         index += 1;
         break;
       case "--resume":
@@ -120,15 +128,79 @@ function parseArgs(argv) {
   }
 
   const command = argv[0];
+  if (command === "appshot") {
+    const action = argv[1];
+    if (!action || action.startsWith("--")) {
+      throw new LazyCopyError(
+        "MISSING_APPSHOT_ACTION",
+        "Expected appshot capture, appshot desktop, or appshot hotkey.",
+      );
+    }
+
+    if (action === "hotkey") {
+      const hotkeyAction = argv[2];
+      if (!hotkeyAction || hotkeyAction.startsWith("--")) {
+        throw new LazyCopyError(
+          "MISSING_HOTKEY_ACTION",
+          "Expected appshot hotkey run or appshot hotkey install.",
+        );
+      }
+      return {
+        command: "appshot-hotkey",
+        action: hotkeyAction,
+        options: parseFlagArgs(argv.slice(3), {
+          appName: "Codex",
+          key: DEFAULT_HOTKEY,
+        }),
+      };
+    }
+
+    if (!["capture", "desktop"].includes(action)) {
+      throw new LazyCopyError("UNKNOWN_APPSHOT_ACTION", `Unknown appshot action ${action}.`);
+    }
+
+    const defaults = {
+      capture: { json: false, mode: "active-window" },
+      desktop: { appName: "Codex", json: false, keep: false, mode: "active-window", paste: true },
+    }[action];
+    const options = parseFlagArgs(argv.slice(2), defaults);
+    if (options.positional.length > 0) {
+      throw new LazyCopyError(
+        "UNEXPECTED_ARGUMENT",
+        `Unexpected argument ${options.positional[0]}.`,
+      );
+    }
+    return { command: `appshot-${action}`, options };
+  }
+
+  if (command === "dd") {
+    const options = parseFlagArgs(argv.slice(1), {
+      agent: "codex",
+      json: false,
+      keep: false,
+      prefer: "auto",
+      resume: "last",
+    });
+    if (options.positional.length > 0 && !options.prompt) {
+      options.prompt = options.positional.join(" ");
+    } else if (options.positional.length > 0) {
+      throw new LazyCopyError(
+        "UNEXPECTED_ARGUMENT",
+        `Unexpected argument ${options.positional[0]}.`,
+      );
+    }
+    return { command: "dd", options };
+  }
+
   if (command === "hotkey") {
     const action = argv[1];
     if (!action || action.startsWith("--")) {
       throw new LazyCopyError("MISSING_HOTKEY_ACTION", "Expected hotkey run or hotkey install.");
     }
     return {
-      command: "hotkey",
+      command: "appshot-hotkey",
       action,
-      options: parseFlagArgs(argv.slice(2), { appName: "Codex" }),
+      options: parseFlagArgs(argv.slice(2), { appName: "Codex", key: DEFAULT_HOTKEY }),
     };
   }
 
@@ -139,8 +211,8 @@ function parseArgs(argv) {
   const defaults = {
     capture: { json: false, mode: "active-window" },
     clipboard: { json: false, prefer: "auto" },
-    codex: { json: false, resume: "last" },
-    desktop: { appName: "Codex", json: false, mode: "active-window", paste: true },
+    codex: { agent: "codex", json: false, keep: false, prefer: "auto", resume: "last" },
+    desktop: { appName: "Codex", json: false, keep: false, mode: "active-window", paste: true },
   }[command];
 
   const options = parseFlagArgs(argv.slice(1), defaults);
@@ -172,6 +244,14 @@ async function removeIfExists(filePath) {
   if (filePath) {
     await fs.rm(filePath, { force: true });
   }
+}
+
+async function cleanupArtifact(result, options = {}) {
+  if (options.keep || !result?.artifactDir) {
+    return { kept: true };
+  }
+  await fs.rm(result.artifactDir, { force: true, recursive: true });
+  return { kept: false, deleted: true };
 }
 
 async function runCapture(options, system) {
@@ -256,9 +336,55 @@ function buildCodexArgs(clipboardResult, prompt) {
   ];
 }
 
-async function runCodex(options, system, io) {
+function buildClaudeArgs(clipboardResult, prompt) {
+  const requestedPrompt = prompt || "Use the LazyCopy clipboard content.";
+  if (clipboardResult.kind === "image") {
+    return [
+      "--continue",
+      "--print",
+      "--add-dir",
+      clipboardResult.artifactDir,
+      "--",
+      `${requestedPrompt}\n\nLazyCopy clipboard image is saved at ${clipboardResult.imagePath}. Use it as the current clipboard visual context.`,
+    ];
+  }
+
+  return [
+    "--continue",
+    "--print",
+    "--",
+    `${requestedPrompt}\n\nLazyCopy clipboard text is saved at ${clipboardResult.textPath}. Its content is:\n\n${clipboardResult.text}`,
+  ];
+}
+
+function buildDdArgs(agent, clipboardResult, prompt) {
+  if (agent === "codex") {
+    return buildCodexArgs(clipboardResult, prompt);
+  }
+  if (agent === "claude") {
+    return buildClaudeArgs(clipboardResult, prompt);
+  }
+  throw new LazyCopyError("UNSUPPORTED_AGENT", "Expected --agent codex or --agent claude.");
+}
+
+function ddCommandForAgent(agent, system) {
+  if (agent === "codex") {
+    return system.codexBin;
+  }
+  if (agent === "claude") {
+    return system.claudeBin;
+  }
+  throw new LazyCopyError("UNSUPPORTED_AGENT", "Expected --agent codex or --agent claude.");
+}
+
+async function runDd(options, system, io) {
   if (options.resume !== "last") {
     throw new LazyCopyError("UNSUPPORTED_RESUME", "Only --resume last is supported.");
+  }
+
+  const agent = String(options.agent ?? "codex").toLowerCase();
+  if (!VALID_AGENTS.has(agent)) {
+    throw new LazyCopyError("UNSUPPORTED_AGENT", "Expected --agent codex or --agent claude.");
   }
 
   const clipboardResult = await runClipboard(
@@ -271,29 +397,58 @@ async function runCodex(options, system, io) {
       ? await fs.readFile(clipboardResult.textPath, "utf8")
       : undefined;
 
-  const codexArgs = buildCodexArgs(
+  const args = buildDdArgs(
+    agent,
     { ...clipboardResult, text: promptClipboard },
     options.prompt,
   );
+  const command = ddCommandForAgent(agent, system);
   if (options.dryRun) {
     return {
       artifact: clipboardResult,
-      codex: {
-        command: system.codexBin,
-        args: redactCodexArgs(codexArgs, clipboardResult.kind),
+      cleanup: { kept: true, reason: "dry-run" },
+      dd: {
+        agent,
+        command,
+        args: redactDdArgs(args, clipboardResult),
       },
     };
   }
 
-  const exitCode = await spawnInherit(system.codexBin, codexArgs, io);
-  return { artifact: clipboardResult, codex: { exitCode } };
+  const exitCode = await spawnInherit(command, args, io);
+  const cleanup = exitCode === 0 ? await cleanupArtifact(clipboardResult, options) : { kept: true };
+  return { artifact: clipboardResult, cleanup, dd: { agent, exitCode } };
+}
+
+async function runCodex(options, system, io) {
+  return runDd({ ...options, agent: "codex" }, system, io);
+}
+
+function redactDdArgs(args, clipboardResult) {
+  return args.map((arg) => {
+    let redacted = String(arg);
+    const replacements = [
+      [clipboardResult.artifactDir, "<lazycopy-artifact-dir>"],
+      [clipboardResult.imagePath, "capture.png"],
+      [clipboardResult.textPath, "clipboard.txt"],
+    ].filter(([value]) => typeof value === "string" && value.length > 0);
+
+    for (const [value, replacement] of replacements) {
+      redacted = redacted.split(value).join(replacement);
+    }
+
+    if (clipboardResult.kind === "text" && redacted.includes("LazyCopy clipboard text")) {
+      return "<prompt-with-clipboard-text:redacted>";
+    }
+    if (clipboardResult.kind === "image" && redacted.includes("LazyCopy clipboard image")) {
+      return "<prompt-with-clipboard-image:redacted>";
+    }
+    return redacted;
+  });
 }
 
 function redactCodexArgs(args, kind) {
-  if (kind !== "text") {
-    return args;
-  }
-  return args.map((arg, index) => (index === args.length - 1 ? "<prompt-with-clipboard-text:redacted>" : arg));
+  return redactDdArgs(args, { kind });
 }
 
 async function runDesktop(options, system) {
@@ -308,6 +463,7 @@ async function runDesktop(options, system) {
 
   return {
     ...result,
+    cleanup: await cleanupArtifact(result, options),
     copiedToClipboard: true,
     pastedTo,
   };
@@ -318,6 +474,7 @@ function hotkeyCommand(system, options) {
   return [
     process.execPath,
     path.join(system.repoRoot(), "bin", "lazycopy.js"),
+    "appshot",
     "desktop",
     "--mode",
     "active-window",
@@ -331,6 +488,7 @@ function launchAgentPlist(system, options) {
   const args = [
     process.execPath,
     path.join(system.repoRoot(), "bin", "lazycopy.js"),
+    "appshot",
     "hotkey",
     "run",
     "--key",
@@ -367,22 +525,21 @@ function escapeXml(text) {
 }
 
 async function runHotkey(options, system, io, action) {
-  if (!options.key) {
-    throw new LazyCopyError("MISSING_HOTKEY", "Missing --key.");
-  }
+  const key = options.key ?? DEFAULT_HOTKEY;
+  const hotkeyOptions = { ...options, key };
 
   if (action === "run") {
     const args = [
       path.join(system.repoRoot(), "scripts", "hotkey.swift"),
-      options.key,
+      hotkeyOptions.key,
       "--",
-      ...hotkeyCommand(system, options),
+      ...hotkeyCommand(system, hotkeyOptions),
     ];
     return spawnInherit(system.swiftBin, args, io);
   }
 
   if (action === "install") {
-    const plist = launchAgentPlist(system, options);
+    const plist = launchAgentPlist(system, hotkeyOptions);
     const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", "com.lazycopy.hotkey.plist");
     if (options.dryRun) {
       return { plistPath, plist };
@@ -416,6 +573,7 @@ function spawnInherit(command, args, io) {
 function defaultSystem() {
   return {
     ...macos,
+    claudeBin: process.env.LAZYCOPY_CLAUDE_BIN || "claude",
     codexBin: process.env.LAZYCOPY_CODEX_BIN || "codex",
     platform: process.platform,
     swiftBin: "swift",
@@ -436,15 +594,17 @@ async function runCli(argv, io = {}) {
     }
 
     let result;
-    if (parsed.command === "capture") {
+    if (parsed.command === "appshot-capture" || parsed.command === "capture") {
       result = await runCapture(parsed.options, system);
     } else if (parsed.command === "clipboard") {
       result = await runClipboard(parsed.options, system);
+    } else if (parsed.command === "dd") {
+      result = await runDd(parsed.options, system, io);
     } else if (parsed.command === "codex") {
       result = await runCodex(parsed.options, system, io);
-    } else if (parsed.command === "desktop") {
+    } else if (parsed.command === "appshot-desktop" || parsed.command === "desktop") {
       result = await runDesktop(parsed.options, system);
-    } else if (parsed.command === "hotkey") {
+    } else if (parsed.command === "appshot-hotkey") {
       result = await runHotkey(parsed.options, system, io, parsed.action);
     }
 
@@ -473,8 +633,12 @@ async function runCli(argv, io = {}) {
 
 module.exports = {
   buildCodexArgs,
+  buildClaudeArgs,
+  buildDdArgs,
+  DEFAULT_HOTKEY,
   launchAgentPlist,
   parseArgs,
+  redactDdArgs,
   redactCodexArgs,
   runCli,
   usage,

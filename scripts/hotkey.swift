@@ -1,4 +1,5 @@
 import Carbon
+import CoreFoundation
 import Foundation
 
 var commandToRun: [String] = []
@@ -86,4 +87,4 @@ if status != noErr {
 
 print("LazyCopy hotkey listening: \(hotkeySpec)")
 fflush(stdout)
-RunApplicationEventLoop()
+CFRunLoopRun()

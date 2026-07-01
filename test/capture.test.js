@@ -8,7 +8,7 @@ const { test } = require("node:test");
 
 const { createCaptureArtifact, createTextArtifact } = require("../src/capture");
 const { LazyCopyError } = require("../src/errors");
-const { launchAgentPlist, runCli } = require("../src/cli");
+const { DEFAULT_HOTKEY, launchAgentPlist, runCli } = require("../src/cli");
 
 const repoRoot = path.resolve(__dirname, "..");
 const oneByOnePng = Buffer.from(
@@ -44,6 +44,7 @@ function fakeSystem(t, overrides = {}) {
 
   return {
     calls,
+    claudeBin: "claude",
     codexBin: "codex",
     platform: "darwin",
     repoRoot: () => repoRoot,
@@ -55,6 +56,7 @@ function fakeSystem(t, overrides = {}) {
       return { source: { type: "macos-front-window", windowId: "42", nativeCapture: true } };
     },
     async copyImageToClipboard(imagePath) {
+      await fs.readFile(imagePath);
       calls.push(["copyImageToClipboard", imagePath]);
     },
     async pasteIntoApp(appName) {
@@ -151,12 +153,14 @@ test("clipboard command falls back to text when no clipboard image exists", asyn
   assert.equal(await fs.readFile(payload.textPath, "utf8"), "clipboard text");
 });
 
-test("codex dry-run builds resume argv from clipboard text", async (t) => {
+test("dd codex dry-run builds resume argv from clipboard text", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
 
   const exitCode = await runCli(
     [
+      "dd",
+      "--agent",
       "codex",
       "--dry-run",
       "--prefer",
@@ -175,20 +179,55 @@ test("codex dry-run builds resume argv from clipboard text", async (t) => {
 
   assert.equal(exitCode, 0);
   const payload = stdout.json();
-  assert.equal(payload.codex.command, "codex");
-  assert.deepEqual(payload.codex.args.slice(0, 2), ["resume", "--last"]);
-  assert.equal(payload.codex.args[2], "<prompt-with-clipboard-text:redacted>");
+  assert.equal(payload.dd.agent, "codex");
+  assert.equal(payload.dd.command, "codex");
+  assert.deepEqual(payload.dd.args.slice(0, 2), ["resume", "--last"]);
+  assert.equal(payload.dd.args[2], "<prompt-with-clipboard-text:redacted>");
   assert.equal(JSON.stringify(payload).includes("clipboard text"), false);
   assert.equal(await fs.readFile(payload.artifact.textPath, "utf8"), "clipboard text");
 });
 
-test("desktop command captures the front window, copies it, and targets Codex", async (t) => {
+test("dd claude dry-run builds print argv from clipboard text", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+
+  const exitCode = await runCli(
+    [
+      "dd",
+      "--agent",
+      "claude",
+      "--dry-run",
+      "--prefer",
+      "text",
+      "--prompt",
+      "Explain this",
+      "--output-root",
+      outputRoot,
+    ],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system: fakeSystem(t),
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.dd.agent, "claude");
+  assert.equal(payload.dd.command, "claude");
+  assert.deepEqual(payload.dd.args.slice(0, 2), ["--continue", "--print"]);
+  assert.equal(payload.dd.args[2], "--");
+  assert.equal(payload.dd.args[3], "<prompt-with-clipboard-text:redacted>");
+  assert.equal(JSON.stringify(payload).includes("clipboard text"), false);
+});
+
+test("appshot desktop captures the front window, copies it, targets Codex, and cleans up", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
   const system = fakeSystem(t);
 
   const exitCode = await runCli(
-    ["desktop", "--json", "--output-root", outputRoot, "--paste-to", "Codex"],
+    ["appshot", "desktop", "--json", "--output-root", outputRoot, "--paste-to", "Codex"],
     {
       stdout: stdout.stream,
       stderr: { write: () => {} },
@@ -201,7 +240,8 @@ test("desktop command captures the front window, copies it, and targets Codex", 
   assert.equal(payload.ok, true);
   assert.equal(payload.copiedToClipboard, true);
   assert.equal(payload.pastedTo, "Codex");
-  assert.equal((await fs.readFile(payload.imagePath)).byteLength, oneByOnePng.byteLength);
+  assert.equal(payload.cleanup.deleted, true);
+  await assert.rejects(fs.access(payload.artifactDir), { code: "ENOENT" });
   assert.deepEqual(system.calls.map((call) => call[0]), [
     "captureScreenToFile",
     "copyImageToClipboard",
@@ -209,11 +249,31 @@ test("desktop command captures the front window, copies it, and targets Codex", 
   ]);
 });
 
-test("hotkey install dry-run emits a LaunchAgent for LazyCopy desktop", async (t) => {
+test("appshot desktop --keep preserves the capture artifact", async (t) => {
+  const outputRoot = await makeTempDir(t);
+  const stdout = captureWrites();
+  const system = fakeSystem(t);
+
+  const exitCode = await runCli(
+    ["appshot", "desktop", "--json", "--keep", "--output-root", outputRoot],
+    {
+      stdout: stdout.stream,
+      stderr: { write: () => {} },
+      system,
+    },
+  );
+
+  assert.equal(exitCode, 0);
+  const payload = stdout.json();
+  assert.equal(payload.cleanup.kept, true);
+  assert.equal((await fs.readFile(payload.imagePath)).byteLength, oneByOnePng.byteLength);
+});
+
+test("appshot hotkey install dry-run emits a LaunchAgent for LazyCopy appshot", async (t) => {
   const stdout = captureWrites();
 
   const exitCode = await runCli(
-    ["hotkey", "install", "--key", "command+shift+l", "--app", "Codex", "--dry-run"],
+    ["appshot", "hotkey", "install", "--app", "Codex", "--dry-run"],
     {
       stdout: stdout.stream,
       stderr: { write: () => {} },
@@ -225,12 +285,13 @@ test("hotkey install dry-run emits a LaunchAgent for LazyCopy desktop", async (t
   const payload = stdout.json();
   assert.equal(payload.ok, true);
   assert.match(payload.plist, /com\.lazycopy\.hotkey/);
-  assert.match(payload.plist, /command\+shift\+l/);
+  assert.match(payload.plist, /control\+space/);
+  assert.match(payload.plist, /appshot/);
   assert.match(payload.plist, /hotkey/);
   assert.match(payload.plist, /run/);
 });
 
-test("lazycopy help exposes desktop, clipboard, codex, and hotkey surfaces", async () => {
+test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Ctrl+Space surfaces", async () => {
   const bin = path.join(repoRoot, "bin", "lazycopy.js");
   const help = spawnSync(process.execPath, [bin, "--help"], {
     cwd: repoRoot,
@@ -238,18 +299,21 @@ test("lazycopy help exposes desktop, clipboard, codex, and hotkey surfaces", asy
   });
 
   assert.equal(help.status, 0);
-  assert.match(help.stdout, /desktop/);
-  assert.match(help.stdout, /clipboard/);
+  assert.match(help.stdout, /appshot/);
+  assert.match(help.stdout, /dd/);
   assert.match(help.stdout, /codex/);
-  assert.match(help.stdout, /hotkey/);
+  assert.match(help.stdout, /Claude Code/);
+  assert.match(help.stdout, /control\+space/);
+  assert.equal(help.stdout.includes(["command", "shift", "l"].join("+")), false);
   assert.equal(help.stdout.includes("--desktop-current"), false);
 });
 
 test("launchAgentPlist escapes argument values", () => {
   const plist = launchAgentPlist(
     { repoRoot: () => "/tmp/LazyCopy" },
-    { key: "command+shift+l", appName: "Codex & Friends" },
+    { key: DEFAULT_HOTKEY, appName: "Codex & Friends" },
   );
 
   assert.match(plist, /Codex &amp; Friends/);
+  assert.match(plist, /control\+space/);
 });
