@@ -774,9 +774,32 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
     "register-failed",
     "hotkey-fired",
     "command-launch",
+    "command-launched",
+    "command-launch-failed",
+    "message-loop-ended",
+    "message-loop-failed",
+    "listener-failed",
+    "listener-stop",
   ]) {
     assert.match(script, new RegExp(marker));
   }
+});
+
+test("Windows hotkey helper keeps listening when an appshot launch fails", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-hotkey.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /function Start-LazyCopyHotkeyCommand/);
+  assert.match(script, /Start-Process[\s\S]*-PassThru/);
+  assert.match(script, /catch \{\s*Write-LazyCopyLog "command-launch-failed/);
+  const messageLoopHotkeyBlock = script.slice(
+    script.indexOf("if ($message.message -eq 0x0312"),
+    script.indexOf("[LazyCopyHotkey]::TranslateMessage"),
+  );
+  assert.match(messageLoopHotkeyBlock, /Start-LazyCopyHotkeyCommand/);
+  assert.doesNotMatch(messageLoopHotkeyBlock, /Start-Process/);
 });
 
 test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces", async () => {

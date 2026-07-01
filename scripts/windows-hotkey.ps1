@@ -105,6 +105,21 @@ $parts = ConvertTo-HotkeyParts $Key
 $id = 1
 $message = New-Object LazyCopyHotkey+MSG
 
+function Start-LazyCopyHotkeyCommand {
+  try {
+    if ($Command.Count -eq 1) {
+      Write-LazyCopyLog "command-launch file=$($Command[0]) args=0"
+      $process = Start-Process -FilePath $Command[0] -WindowStyle Hidden -PassThru
+    } else {
+      Write-LazyCopyLog "command-launch file=$($Command[0]) args=$($Command.Count - 1)"
+      $process = Start-Process -FilePath $Command[0] -ArgumentList $Command[1..($Command.Count - 1)] -WindowStyle Hidden -PassThru
+    }
+    Write-LazyCopyLog "command-launched pid=$($process.Id)"
+  } catch {
+    Write-LazyCopyLog "command-launch-failed message=$($_.Exception.Message)"
+  }
+}
+
 if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {
   $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
   Write-LazyCopyLog "register-failed key=$Key win32=$errorCode"
@@ -116,20 +131,27 @@ try {
   Write-LazyCopyLog "register-success key=$Key"
   Write-LazyCopyLog "listening-success key=$Key"
   Write-Output "LazyCopy hotkey listening: $Key"
-  while ([LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0) -ne 0) {
+  while ($true) {
+    $messageResult = [LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0)
+    if ($messageResult -eq 0) {
+      Write-LazyCopyLog "message-loop-ended key=$Key"
+      break
+    }
+    if ($messageResult -eq -1) {
+      Write-LazyCopyLog "message-loop-failed key=$Key"
+      throw "Windows hotkey message loop failed."
+    }
     if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {
       Write-LazyCopyLog "hotkey-fired key=$Key"
-      if ($Command.Count -eq 1) {
-        Write-LazyCopyLog "command-launch file=$($Command[0]) args=0"
-        Start-Process -FilePath $Command[0] -WindowStyle Hidden
-      } else {
-        Write-LazyCopyLog "command-launch file=$($Command[0]) args=$($Command.Count - 1)"
-        Start-Process -FilePath $Command[0] -ArgumentList $Command[1..($Command.Count - 1)] -WindowStyle Hidden
-      }
+      Start-LazyCopyHotkeyCommand
     }
     [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null
     [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null
   }
+} catch {
+  Write-LazyCopyLog "listener-failed message=$($_.Exception.Message)"
+  throw
 } finally {
   [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null
+  Write-LazyCopyLog "listener-stop key=$Key"
 }
