@@ -375,15 +375,17 @@ test("Windows installer keeps watcher setup ahead of optional npm link", async (
   const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
   const wrappersIndex = installer.indexOf("installWindowsUserBinWrappers();");
   const hotkeyIndex = installer.indexOf("appshot");
-  const npmLinkIndex = installer.indexOf("runNpmLink({ optional: true });");
+  const npmLinkIndex = installer.indexOf("runNpmLink({ optional: true, cwd: runtimeRoot });");
 
   assert.ok(wrappersIndex !== -1);
   assert.ok(hotkeyIndex !== -1);
   assert.ok(npmLinkIndex !== -1);
   assert.ok(wrappersIndex < npmLinkIndex);
   assert.ok(hotkeyIndex < npmLinkIndex);
+  assert.match(installer, /const runtimeRoot = ensureDdSkill\(\);/);
+  assert.match(installer, /path\.join\(runtimeRoot, "bin", "lazycopy\.js"\)/);
+  assert.match(installer, /runNpmLink\(\{ optional: true, cwd: runtimeRoot \}\)/);
   assert.match(installer, /"--json"/);
-  assert.match(installer, /runNpmLink\(\{ optional: true \}\)/);
 });
 
 test("installer smoke installs Codex skills, prompts, and Claude commands in a temp HOME", async (t) => {
@@ -405,10 +407,12 @@ test("installer smoke installs Codex skills, prompts, and Claude commands in a t
   assert.match(install.stdout, /\$ㅇㅇ/);
 
   const ddSkillPath = path.join(home, ".codex", "skills", "dd", "SKILL.md");
+  const ddSkillDir = path.join(home, ".codex", "skills", "dd");
   const shorthandSkillDir = path.join(home, ".codex", "skills", "ㅇㅇ");
   const shorthandSkillPath = path.join(home, ".codex", "skills", "ㅇㅇ", "SKILL.md");
   const ddSkill = await fs.readFile(ddSkillPath, "utf8");
   const shorthandSkill = await fs.readFile(shorthandSkillPath, "utf8");
+  assert.equal((await fs.lstat(ddSkillDir)).isSymbolicLink(), false);
   assert.equal(skillFrontmatter(ddSkill).name, "dd");
   assert.equal(skillFrontmatter(ddSkill).title, "LazyCopy:dd");
   assert.equal(skillFrontmatter(ddSkill)["user-invocable"], "true");
@@ -424,8 +428,62 @@ test("installer smoke installs Codex skills, prompts, and Claude commands in a t
   assert.equal(skillFrontmatter(shorthandPrompt).title, "LazyCopy:ㅇㅇ");
   assert.equal(skillFrontmatter(ddPrompt).description.startsWith("LazyCopy:dd"), true);
   assert.equal(skillFrontmatter(shorthandPrompt).description.startsWith("LazyCopy:ㅇㅇ"), true);
+  await fs.access(path.join(ddSkillDir, "bin", "lazycopy.js"));
+  await fs.access(path.join(ddSkillDir, "src", "cli.js"));
+  await fs.access(path.join(ddSkillDir, "scripts", "windows-appshot-watch.ps1"));
   await fs.access(path.join(home, ".claude", "commands", "dd.md"));
   await fs.access(path.join(home, ".claude", "commands", "ㅇㅇ.md"));
+});
+
+test("installer repairs a stale root dd skill symlink instead of preserving a volatile source path", async (t) => {
+  const home = await makeTempDir(t);
+  const staleTarget = path.join(home, "deleted-qa-copy");
+  const ddSkillDir = path.join(home, ".codex", "skills", "dd");
+  await fs.mkdir(path.dirname(ddSkillDir), { recursive: true });
+  await fs.symlink(staleTarget, ddSkillDir, "dir");
+
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      LAZYCOPY_INSTALL_SKIP_NPM_LINK: "1",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.equal((await fs.lstat(ddSkillDir)).isSymbolicLink(), false);
+  assert.equal(JSON.parse(await fs.readFile(path.join(ddSkillDir, "package.json"), "utf8")).name, "lazycopy");
+  await fs.access(path.join(ddSkillDir, "bin", "lazycopy.js"));
+  await fs.access(path.join(ddSkillDir, "scripts", "start-windows-appshot-watch.js"));
+});
+
+test("installer refreshes an existing stable dd checkout without deleting git metadata", async (t) => {
+  const home = await makeTempDir(t);
+  const ddSkillDir = path.join(home, ".codex", "skills", "dd");
+  await fs.mkdir(path.join(ddSkillDir, ".git"), { recursive: true });
+  await fs.writeFile(path.join(ddSkillDir, ".git", "HEAD"), "ref: refs/heads/Implementation\n");
+  await fs.writeFile(path.join(ddSkillDir, "package.json"), JSON.stringify({ name: "lazycopy" }));
+
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      LAZYCOPY_INSTALL_SKIP_NPM_LINK: "1",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.equal(await fs.readFile(path.join(ddSkillDir, ".git", "HEAD"), "utf8"), "ref: refs/heads/Implementation\n");
+  assert.equal(JSON.parse(await fs.readFile(path.join(ddSkillDir, "package.json"), "utf8")).name, "lazycopy");
+  await fs.access(path.join(ddSkillDir, "bin", "lazycopy.js"));
 });
 
 test("installer replaces old Korean skill symlink without overwriting root dd skill", async (t) => {

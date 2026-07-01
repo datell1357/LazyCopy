@@ -25,6 +25,21 @@ const ddSkillSource = path.join(repoRoot, "SKILL.md");
 const ddSkillTarget = path.join(ddSkillDir, "SKILL.md");
 const shorthandSkillSource = path.join(repoRoot, "skills", "ㅇㅇ", "SKILL.md");
 const shorthandSkillTarget = path.join(shorthandSkillDir, "SKILL.md");
+const installEntries = [
+  "assets",
+  "bin",
+  "commands",
+  "docs",
+  "prompts",
+  "scripts",
+  "skills",
+  "src",
+  "LICENSE",
+  "package.json",
+  "README.md",
+  "SKILL.md",
+  "THIRD_PARTY_NOTICES.md",
+];
 
 function installPlatform() {
   return process.env.LAZYCOPY_INSTALL_TEST_PLATFORM || process.platform;
@@ -77,6 +92,59 @@ function sameExistingPath(left, right) {
   }
 }
 
+function lstatIfPresent(targetPath) {
+  try {
+    return fs.lstatSync(targetPath);
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function hasLazyCopyMarker(targetPath) {
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(path.join(targetPath, "package.json"), "utf8"));
+    if (packageJson.name === "lazycopy") {
+      return true;
+    }
+  } catch {
+  }
+  try {
+    const skill = fs.readFileSync(path.join(targetPath, "SKILL.md"), "utf8");
+    return skill.includes("LazyCopy") || skill.includes("name: dd");
+  } catch {
+    return false;
+  }
+}
+
+function clearInstallEntries(targetRoot) {
+  for (const entry of installEntries) {
+    fs.rmSync(path.join(targetRoot, entry), { recursive: true, force: true });
+  }
+}
+
+function copyInstallTree(sourceRoot, targetRoot, options = {}) {
+  if (options.replaceRoot) {
+    fs.rmSync(targetRoot, { recursive: true, force: true });
+  }
+  fs.mkdirSync(targetRoot, { recursive: true });
+  if (!options.replaceRoot) {
+    clearInstallEntries(targetRoot);
+  }
+  for (const entry of installEntries) {
+    const source = path.join(sourceRoot, entry);
+    if (!fs.existsSync(source)) {
+      continue;
+    }
+    fs.cpSync(source, path.join(targetRoot, entry), {
+      recursive: true,
+      force: true,
+    });
+  }
+}
+
 function copySkillFile(source, target) {
   if (!sameExistingPath(source, target)) {
     fs.copyFileSync(source, target);
@@ -85,20 +153,23 @@ function copySkillFile(source, target) {
 
 function ensureDdSkill() {
   fs.mkdirSync(skillsDir, { recursive: true });
-  if (!fs.existsSync(ddSkillDir)) {
-    fs.symlinkSync(repoRoot, ddSkillDir, isWindows() ? "junction" : "dir");
-    return;
-  }
   if (sameExistingPath(ddSkillDir, repoRoot)) {
     copySkillFile(ddSkillSource, ddSkillTarget);
-    return;
+    return repoRoot;
   }
-  const stat = fs.lstatSync(ddSkillDir);
+  const stat = lstatIfPresent(ddSkillDir);
+  if (!stat) {
+    copyInstallTree(repoRoot, ddSkillDir, { replaceRoot: true });
+    return ddSkillDir;
+  }
   if (!stat.isDirectory() && !stat.isSymbolicLink()) {
     throw new Error(`${ddSkillDir} exists but is not a skill directory.`);
   }
-  fs.mkdirSync(ddSkillDir, { recursive: true });
-  copySkillFile(ddSkillSource, ddSkillTarget);
+  if (!stat.isSymbolicLink() && fs.existsSync(ddSkillDir) && !hasLazyCopyMarker(ddSkillDir)) {
+    throw new Error(`${ddSkillDir} exists but does not look like a LazyCopy skill directory.`);
+  }
+  copyInstallTree(repoRoot, ddSkillDir, { replaceRoot: stat.isSymbolicLink() });
+  return ddSkillDir;
 }
 
 function installShorthandSkill() {
@@ -169,7 +240,7 @@ function installWindowsUserBinWrappers() {
   }
 }
 
-ensureDdSkill();
+const runtimeRoot = ensureDdSkill();
 installShorthandSkill();
 installPrompt();
 installClaudeCommands();
@@ -178,7 +249,7 @@ if (isWindows()) {
   installWindowsUserBinWrappers();
   if (process.env.LAZYCOPY_INSTALL_SKIP_HOTKEY !== "1") {
     const hotkeyInstallArgs = [
-      path.join(repoRoot, "bin", "lazycopy.js"),
+      path.join(runtimeRoot, "bin", "lazycopy.js"),
       "appshot",
       "hotkey",
       "install",
@@ -194,12 +265,12 @@ if (isWindows()) {
     run(process.execPath, hotkeyInstallArgs);
   }
   if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
-    runNpmLink({ optional: true });
+    runNpmLink({ optional: true, cwd: runtimeRoot });
   }
   console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, Claude Code /ㅇㅇ, and watcher-managed Shift+Space AppShot.");
 } else {
   if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
-    runNpmLink();
+    runNpmLink({ cwd: runtimeRoot });
   }
   console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, and Claude Code /ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.");
 }
