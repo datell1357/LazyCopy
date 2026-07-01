@@ -1,5 +1,5 @@
 param(
-  [Parameter(Mandatory = $true)][string]$TargetPath,
+  [string]$TargetPath = "",
   [ValidateSet("active-window", "fullscreen", "region")][string]$Mode = "active-window",
   [string]$AppName = "Codex",
   [string]$SoundPath = ""
@@ -23,6 +23,7 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 public static class LazyCopyWin32AppShot {
   [StructLayout(LayoutKind.Sequential)]
@@ -41,8 +42,17 @@ public static class LazyCopyWin32AppShot {
 
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+  [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
+  public static extern int mciSendString(string command, StringBuilder returnValue, int returnLength, IntPtr winHandle);
 }
 "@
+
+$createdTemporaryTarget = $false
+if (-not $TargetPath) {
+  $TargetPath = Join-Path ([System.IO.Path]::GetTempPath()) ("lazycopy-appshot-" + [System.Guid]::NewGuid().ToString("N") + ".png")
+  $createdTemporaryTarget = $true
+}
 
 function Start-LazyCopyCaptureSound {
   param(
@@ -54,13 +64,19 @@ function Start-LazyCopyCaptureSound {
   }
 
   try {
-    Add-Type -AssemblyName PresentationCore
     $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
-    $player = New-Object System.Windows.Media.MediaPlayer
-    $player.Open((New-Object System.Uri -ArgumentList $resolvedPath))
-    $player.Volume = 1.0
-    $player.Play()
-    return $player
+    $alias = "lazycopy_appshot_$PID"
+    [LazyCopyWin32AppShot]::mciSendString("close $alias", $null, 0, [IntPtr]::Zero) | Out-Null
+    $openResult = [LazyCopyWin32AppShot]::mciSendString("open `"$resolvedPath`" type mpegvideo alias $alias", $null, 0, [IntPtr]::Zero)
+    if ($openResult -ne 0) {
+      return $null
+    }
+    $playResult = [LazyCopyWin32AppShot]::mciSendString("play $alias", $null, 0, [IntPtr]::Zero)
+    if ($playResult -ne 0) {
+      [LazyCopyWin32AppShot]::mciSendString("close $alias", $null, 0, [IntPtr]::Zero) | Out-Null
+      return $null
+    }
+    return $alias
   } catch {
     return $null
   }
@@ -76,7 +92,7 @@ function Close-LazyCopyCaptureSound {
   }
 
   try {
-    $Player.Close()
+    [LazyCopyWin32AppShot]::mciSendString("close $Player", $null, 0, [IntPtr]::Zero) | Out-Null
   } catch {
   }
 }
@@ -143,6 +159,14 @@ if ($width -le 0 -or $height -le 0) {
   throw "The capture area is empty."
 }
 
+$captureSoundPlayer = $null
+try {
+  $captureSoundPlayer = Invoke-LazyCopyCaptureFlash -Left $left -Top $top -Width $width -Height $height -SoundPath $SoundPath
+} catch {
+  # Visual feedback is best-effort; keep the capture and paste flow alive.
+}
+Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds
+
 $parent = Split-Path -Parent $TargetPath
 if ($parent) {
   New-Item -ItemType Directory -Force -Path $parent | Out-Null
@@ -155,18 +179,13 @@ try {
   $bitmap.Save($TargetPath, [System.Drawing.Imaging.ImageFormat]::Png)
   $clipboardBitmap = New-Object System.Drawing.Bitmap($bitmap)
   [System.Windows.Forms.Clipboard]::SetImage($clipboardBitmap)
+} catch {
+  Close-LazyCopyCaptureSound -Player $captureSoundPlayer
+  throw
 } finally {
   $graphics.Dispose()
   $bitmap.Dispose()
 }
-
-$captureSoundPlayer = $null
-try {
-  $captureSoundPlayer = Invoke-LazyCopyCaptureFlash -Left $left -Top $top -Width $width -Height $height -SoundPath $SoundPath
-} catch {
-  # Visual feedback is best-effort; keep the capture and paste flow alive.
-}
-Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds
 
 $escaped = [regex]::Escape($AppName)
 $process = Get-Process |
@@ -181,7 +200,6 @@ if ($null -eq $process) {
 }
 
 [LazyCopyWin32AppShot]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
-Start-Sleep -Milliseconds 200
 [System.Windows.Forms.SendKeys]::SendWait("^v")
 if ($null -ne $captureSoundPlayer) {
   Start-Sleep -Milliseconds $CaptureSoundKeepAliveMilliseconds
@@ -194,3 +212,7 @@ if ($null -ne $captureSoundPlayer) {
   hwnd = $hwndText
   nativeCapture = $true
 } | ConvertTo-Json -Compress
+
+if ($createdTemporaryTarget) {
+  Remove-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
+}

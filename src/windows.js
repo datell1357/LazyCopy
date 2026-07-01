@@ -171,6 +171,10 @@ async function installHotkey(command, options = {}) {
     `@echo off\r\nrem LazyCopy AppShot watcher log: ${logPath}\r\n${commandLine}\r\n`,
   );
 
+  if (options.start === false) {
+    return { startupPath, started: false, logPath };
+  }
+
   const child = spawn(command[0], command.slice(1), {
     detached: true,
     stdio: "ignore",

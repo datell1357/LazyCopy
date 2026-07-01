@@ -62,9 +62,6 @@ public static class LazyCopyHotkey {
   public static extern sbyte GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
 
   [DllImport("user32.dll")]
-  public static extern bool PeekMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax, uint wRemoveMsg);
-
-  [DllImport("user32.dll")]
   public static extern bool TranslateMessage(ref MSG lpMsg);
 
   [DllImport("user32.dll")]
@@ -72,6 +69,78 @@ public static class LazyCopyHotkey {
 
   [DllImport("user32.dll")]
   public static extern short GetAsyncKeyState(int vKey);
+
+  [StructLayout(LayoutKind.Sequential)]
+  public struct KBDLLHOOKSTRUCT {
+    public uint vkCode;
+    public uint scanCode;
+    public uint flags;
+    public uint time;
+    public IntPtr dwExtraInfo;
+  }
+
+  public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+  public const int WH_KEYBOARD_LL = 13;
+  public const int VK_SPACE = 0x20;
+  public const int VK_SHIFT = 0x10;
+  public const int VK_LSHIFT = 0xA0;
+  public const int VK_RSHIFT = 0xA1;
+  public const uint WM_KEYDOWN = 0x0100;
+  public const uint WM_SYSKEYDOWN = 0x0104;
+  public const uint WM_LAZYCOPY_SHIFT_SPACE = 0x8001;
+
+  private static IntPtr hookHandle = IntPtr.Zero;
+  private static int targetThreadId = 0;
+  private static LowLevelKeyboardProc hookCallback = HookCallback;
+
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+  [DllImport("user32.dll")]
+  public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+  [DllImport("user32.dll", SetLastError = true)]
+  public static extern bool PostThreadMessage(int idThread, uint Msg, IntPtr wParam, IntPtr lParam);
+
+  [DllImport("kernel32.dll")]
+  public static extern int GetCurrentThreadId();
+
+  public static IntPtr InstallShiftSpaceHook(int threadId) {
+    targetThreadId = threadId;
+    hookHandle = SetWindowsHookEx(WH_KEYBOARD_LL, hookCallback, IntPtr.Zero, 0);
+    return hookHandle;
+  }
+
+  public static bool UninstallShiftSpaceHook() {
+    if (hookHandle == IntPtr.Zero) {
+      return true;
+    }
+    bool result = UnhookWindowsHookEx(hookHandle);
+    hookHandle = IntPtr.Zero;
+    return result;
+  }
+
+  private static bool IsKeyDown(int virtualKey) {
+    return (GetAsyncKeyState(virtualKey) & -32768) != 0;
+  }
+
+  private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam) {
+    if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)) {
+      KBDLLHOOKSTRUCT key = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+      bool shiftDown = IsKeyDown(VK_SHIFT) || IsKeyDown(VK_LSHIFT) || IsKeyDown(VK_RSHIFT);
+      if (key.vkCode == VK_SPACE && shiftDown) {
+        if (targetThreadId != 0) {
+          PostThreadMessage(targetThreadId, WM_LAZYCOPY_SHIFT_SPACE, IntPtr.Zero, IntPtr.Zero);
+        }
+        return (IntPtr)1;
+      }
+    }
+    return CallNextHookEx(hookHandle, nCode, wParam, lParam);
+  }
 }
 "@
 
@@ -110,24 +179,17 @@ function ConvertTo-HotkeyParts([string]$Value) {
 $parts = ConvertTo-HotkeyParts $Key
 $id = 1
 $message = New-Object LazyCopyHotkey+MSG
-$AsyncPollMilliseconds = 10
 $HotkeyCooldownMilliseconds = 250
-$script:AsyncShiftSpaceArmed = $true
 $script:LastHotkeyFireTick = 0
+$WM_HOTKEY = 0x0312
+$WM_QUIT = 0x0012
+$WM_LAZYCOPY_SHIFT_SPACE = [LazyCopyHotkey]::WM_LAZYCOPY_SHIFT_SPACE
+$useShiftSpaceHook = $false
+$hookHandle = [IntPtr]::Zero
 
-function Test-LazyCopyKeyDown([int]$VirtualKey) {
-  return ([LazyCopyHotkey]::GetAsyncKeyState($VirtualKey) -band 0x8000) -ne 0
-}
-
-function Test-LazyCopyShiftSpaceFallbackEnabled([string]$Value) {
+function Test-LazyCopyShiftSpaceHookEnabled([string]$Value) {
   $tokens = @($Value.ToLowerInvariant().Split("+") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
   return $tokens.Count -eq 2 -and $tokens.Contains("shift") -and $tokens.Contains("space")
-}
-
-function Test-LazyCopyShiftSpaceDown {
-  $shiftDown = (Test-LazyCopyKeyDown 0x10) -or (Test-LazyCopyKeyDown 0xA0) -or (Test-LazyCopyKeyDown 0xA1)
-  $spaceDown = Test-LazyCopyKeyDown 0x20
-  return $shiftDown -and $spaceDown
 }
 
 function Start-LazyCopyHotkeyCommand {
@@ -146,60 +208,69 @@ function Start-LazyCopyHotkeyCommand {
 }
 
 function Invoke-LazyCopyHotkeyFire([string]$Source) {
-  $script:LastHotkeyFireTick = [Environment]::TickCount64
-  $script:AsyncShiftSpaceArmed = $false
+  $now = [Environment]::TickCount64
+  $elapsed = $now - $script:LastHotkeyFireTick
+  if ($script:LastHotkeyFireTick -ne 0 -and $elapsed -lt $HotkeyCooldownMilliseconds) {
+    Write-LazyCopyLog "hotkey-suppressed key=$Key source=$Source elapsed=$elapsed"
+    return
+  }
+  $script:LastHotkeyFireTick = $now
   Write-LazyCopyLog "hotkey-fired key=$Key source=$Source"
   Start-LazyCopyHotkeyCommand
 }
 
-function Invoke-LazyCopyAsyncShiftSpaceFallback {
-  if (-not (Test-LazyCopyShiftSpaceDown)) {
-    $script:AsyncShiftSpaceArmed = $true
-    return
+$useShiftSpaceHook = Test-LazyCopyShiftSpaceHookEnabled $Key
+if ($useShiftSpaceHook) {
+  $threadId = [LazyCopyHotkey]::GetCurrentThreadId()
+  $hookHandle = [LazyCopyHotkey]::InstallShiftSpaceHook($threadId)
+  if ($hookHandle -eq [IntPtr]::Zero) {
+    $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    Write-LazyCopyLog "register-failed key=$Key mode=keyboard-hook win32=$errorCode"
+    throw "Could not install keyboard hook for $Key. See LazyCopy hotkey log: $LogPath"
   }
-
-  $elapsed = [Environment]::TickCount64 - $script:LastHotkeyFireTick
-  if ($script:AsyncShiftSpaceArmed -and $elapsed -ge $HotkeyCooldownMilliseconds) {
-    Invoke-LazyCopyHotkeyFire "async-state"
+  Write-LazyCopyLog "shift-space-hook-installed thread=$threadId"
+} else {
+  if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {
+    $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+    Write-LazyCopyLog "register-failed key=$Key win32=$errorCode"
+    throw "Could not register hotkey $Key. See LazyCopy hotkey log: $LogPath"
   }
-}
-
-if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {
-  $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-  Write-LazyCopyLog "register-failed key=$Key win32=$errorCode"
-  throw "Could not register hotkey $Key. See LazyCopy hotkey log: $LogPath"
 }
 
 try {
   [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
   Write-LazyCopyLog "register-success key=$Key"
-  $useAsyncShiftSpaceFallback = Test-LazyCopyShiftSpaceFallbackEnabled $Key
-  if ($useAsyncShiftSpaceFallback) {
-    Write-LazyCopyLog "async-shift-space-fallback-enabled pollMs=$AsyncPollMilliseconds cooldownMs=$HotkeyCooldownMilliseconds"
+  if ($useShiftSpaceHook) {
+    Write-LazyCopyLog "shift-space-hook-enabled cooldownMs=$HotkeyCooldownMilliseconds"
   }
   Write-LazyCopyLog "listening-success key=$Key"
   Write-Output "LazyCopy hotkey listening: $Key"
-  :messageLoop while ($true) {
-    while ([LazyCopyHotkey]::PeekMessage([ref]$message, [IntPtr]::Zero, 0, 0, 0x0001)) {
-      if ($message.message -eq 0x0012) {
-        Write-LazyCopyLog "message-loop-ended key=$Key"
-        break messageLoop
-      }
-      if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {
-        Invoke-LazyCopyHotkeyFire "registered"
-      }
-      [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null
-      [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null
+  while ($true) {
+    $messageResult = [LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0)
+    if ($messageResult -eq 0) {
+      Write-LazyCopyLog "message-loop-ended key=$Key"
+      break
     }
-    if ($useAsyncShiftSpaceFallback) {
-      Invoke-LazyCopyAsyncShiftSpaceFallback
+    if ($messageResult -eq -1) {
+      Write-LazyCopyLog "message-loop-failed key=$Key"
+      throw "Windows hotkey message loop failed."
     }
-    Start-Sleep -Milliseconds $AsyncPollMilliseconds
+    if ($message.message -eq $WM_HOTKEY -and $message.wParam.ToInt32() -eq $id) {
+      Invoke-LazyCopyHotkeyFire "registered"
+    } elseif ($message.message -eq $WM_LAZYCOPY_SHIFT_SPACE) {
+      Invoke-LazyCopyHotkeyFire "keyboard-hook"
+    }
+    [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null
+    [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null
   }
 } catch {
   Write-LazyCopyLog "listener-failed message=$($_.Exception.Message)"
   throw
 } finally {
-  [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null
+  if ($useShiftSpaceHook) {
+    [LazyCopyHotkey]::UninstallShiftSpaceHook() | Out-Null
+  } else {
+    [LazyCopyHotkey]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null
+  }
   Write-LazyCopyLog "listener-stop key=$Key"
 }
