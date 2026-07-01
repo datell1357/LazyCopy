@@ -62,10 +62,16 @@ public static class LazyCopyHotkey {
   public static extern sbyte GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
 
   [DllImport("user32.dll")]
+  public static extern bool PeekMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax, uint wRemoveMsg);
+
+  [DllImport("user32.dll")]
   public static extern bool TranslateMessage(ref MSG lpMsg);
 
   [DllImport("user32.dll")]
   public static extern IntPtr DispatchMessage(ref MSG lpMsg);
+
+  [DllImport("user32.dll")]
+  public static extern short GetAsyncKeyState(int vKey);
 }
 "@
 
@@ -104,6 +110,25 @@ function ConvertTo-HotkeyParts([string]$Value) {
 $parts = ConvertTo-HotkeyParts $Key
 $id = 1
 $message = New-Object LazyCopyHotkey+MSG
+$AsyncPollMilliseconds = 10
+$HotkeyCooldownMilliseconds = 250
+$script:AsyncShiftSpaceArmed = $true
+$script:LastHotkeyFireTick = 0
+
+function Test-LazyCopyKeyDown([int]$VirtualKey) {
+  return ([LazyCopyHotkey]::GetAsyncKeyState($VirtualKey) -band 0x8000) -ne 0
+}
+
+function Test-LazyCopyShiftSpaceFallbackEnabled([string]$Value) {
+  $tokens = @($Value.ToLowerInvariant().Split("+") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+  return $tokens.Count -eq 2 -and $tokens.Contains("shift") -and $tokens.Contains("space")
+}
+
+function Test-LazyCopyShiftSpaceDown {
+  $shiftDown = (Test-LazyCopyKeyDown 0x10) -or (Test-LazyCopyKeyDown 0xA0) -or (Test-LazyCopyKeyDown 0xA1)
+  $spaceDown = Test-LazyCopyKeyDown 0x20
+  return $shiftDown -and $spaceDown
+}
 
 function Start-LazyCopyHotkeyCommand {
   try {
@@ -120,6 +145,25 @@ function Start-LazyCopyHotkeyCommand {
   }
 }
 
+function Invoke-LazyCopyHotkeyFire([string]$Source) {
+  $script:LastHotkeyFireTick = [Environment]::TickCount64
+  $script:AsyncShiftSpaceArmed = $false
+  Write-LazyCopyLog "hotkey-fired key=$Key source=$Source"
+  Start-LazyCopyHotkeyCommand
+}
+
+function Invoke-LazyCopyAsyncShiftSpaceFallback {
+  if (-not (Test-LazyCopyShiftSpaceDown)) {
+    $script:AsyncShiftSpaceArmed = $true
+    return
+  }
+
+  $elapsed = [Environment]::TickCount64 - $script:LastHotkeyFireTick
+  if ($script:AsyncShiftSpaceArmed -and $elapsed -ge $HotkeyCooldownMilliseconds) {
+    Invoke-LazyCopyHotkeyFire "async-state"
+  }
+}
+
 if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers, $parts.KeyCode)) {
   $errorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
   Write-LazyCopyLog "register-failed key=$Key win32=$errorCode"
@@ -129,24 +173,28 @@ if (-not [LazyCopyHotkey]::RegisterHotKey([IntPtr]::Zero, $id, $parts.Modifiers,
 try {
   [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
   Write-LazyCopyLog "register-success key=$Key"
+  $useAsyncShiftSpaceFallback = Test-LazyCopyShiftSpaceFallbackEnabled $Key
+  if ($useAsyncShiftSpaceFallback) {
+    Write-LazyCopyLog "async-shift-space-fallback-enabled pollMs=$AsyncPollMilliseconds cooldownMs=$HotkeyCooldownMilliseconds"
+  }
   Write-LazyCopyLog "listening-success key=$Key"
   Write-Output "LazyCopy hotkey listening: $Key"
-  while ($true) {
-    $messageResult = [LazyCopyHotkey]::GetMessage([ref]$message, [IntPtr]::Zero, 0, 0)
-    if ($messageResult -eq 0) {
-      Write-LazyCopyLog "message-loop-ended key=$Key"
-      break
+  :messageLoop while ($true) {
+    while ([LazyCopyHotkey]::PeekMessage([ref]$message, [IntPtr]::Zero, 0, 0, 0x0001)) {
+      if ($message.message -eq 0x0012) {
+        Write-LazyCopyLog "message-loop-ended key=$Key"
+        break messageLoop
+      }
+      if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {
+        Invoke-LazyCopyHotkeyFire "registered"
+      }
+      [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null
+      [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null
     }
-    if ($messageResult -eq -1) {
-      Write-LazyCopyLog "message-loop-failed key=$Key"
-      throw "Windows hotkey message loop failed."
+    if ($useAsyncShiftSpaceFallback) {
+      Invoke-LazyCopyAsyncShiftSpaceFallback
     }
-    if ($message.message -eq 0x0312 -and $message.wParam.ToInt32() -eq $id) {
-      Write-LazyCopyLog "hotkey-fired key=$Key"
-      Start-LazyCopyHotkeyCommand
-    }
-    [LazyCopyHotkey]::TranslateMessage([ref]$message) | Out-Null
-    [LazyCopyHotkey]::DispatchMessage([ref]$message) | Out-Null
+    Start-Sleep -Milliseconds $AsyncPollMilliseconds
   }
 } catch {
   Write-LazyCopyLog "listener-failed message=$($_.Exception.Message)"
