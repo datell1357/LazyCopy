@@ -166,6 +166,17 @@ Expected dd dry-run behavior:
 - JSON output and `manifest.json` do not contain raw clipboard text.
 - The artifact `clipboard.txt` keeps raw clipboard text so the selected agent can read it.
 
+## dd Attribution
+
+LazyCopy's `dd` clipboard workflow is adapted from fivetaku's `dd`, distributed through the `fivetaku/gptaku_plugins` collection.
+
+- Source collection: https://github.com/fivetaku/gptaku_plugins
+- Upstream `dd` source: https://github.com/fivetaku/dd
+- Upstream license: MIT License
+- Upstream copyright: Copyright (c) 2026 fivetaku
+
+LazyCopy keeps this attribution because the upstream `dd` workflow and command surface inspired the local clipboard text/image handoff used here. The upstream MIT notice is preserved in `THIRD_PARTY_NOTICES.md`.
+
 ## Windows Notes
 
 LazyCopy is intended for Windows 10 or Windows 11 with Git, Node.js, Codex CLI, and Codex Desktop installed.
