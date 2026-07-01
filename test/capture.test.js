@@ -96,17 +96,34 @@ test("Codex skill sources expose dd and Korean alias as user-invocable skills", 
   const dd = skillFrontmatter(ddSkill);
 
   assert.equal(dd.name, "dd");
+  assert.equal(dd.title, "LazyCopy:dd");
+  assert.equal(dd["display-name"], "LazyCopy:dd");
   assert.equal(dd["user-invocable"], "true");
   assert.equal(dd["argument-hint"], "[request about the clipboard, optional]");
   assert.match(ddSkill, /use Codex by default/);
   assert.match(ddSkill, /Claude only when the user explicitly asks for Claude/);
   assert.match(ddSkill, /Do not expose AppShot as a skill command/);
+  assert.doesNotMatch(ddSkill, /\$ㅇㅇ <message>/);
 
   const shorthand = skillFrontmatter(shorthandSkill);
   assert.equal(shorthand.name, "ㅇㅇ");
+  assert.equal(shorthand.title, "LazyCopy:ㅇㅇ");
+  assert.equal(shorthand["display-name"], "LazyCopy:ㅇㅇ");
   assert.equal(shorthand["user-invocable"], "true");
   assert.match(shorthandSkill, /same behavior as `dd`/);
   assert.match(shorthandSkill, /Do not expose AppShot as a skill command/);
+});
+
+test("Codex prompt sources expose LazyCopy display titles", async () => {
+  const ddPrompt = await fs.readFile(path.join(repoRoot, "prompts", "dd.md"), "utf8");
+  const shorthandPrompt = await fs.readFile(path.join(repoRoot, "prompts", "ㅇㅇ.md"), "utf8");
+
+  assert.equal(skillFrontmatter(ddPrompt).title, "LazyCopy:dd");
+  assert.equal(skillFrontmatter(shorthandPrompt).title, "LazyCopy:ㅇㅇ");
+  assert.equal(skillFrontmatter(ddPrompt).description.startsWith("LazyCopy:dd"), true);
+  assert.equal(skillFrontmatter(shorthandPrompt).description.startsWith("LazyCopy:ㅇㅇ"), true);
+  assert.match(ddPrompt, /^# LazyCopy:dd/m);
+  assert.match(shorthandPrompt, /^# LazyCopy:ㅇㅇ/m);
 });
 
 test("createCaptureArtifact writes manifest when given a PNG fixture", async (t) => {
@@ -351,6 +368,20 @@ test("installer uses direct spawn so Windows Node paths with spaces stay intact"
   assert.doesNotMatch(installer, /shell:\s*process\.platform\s*===\s*"win32"/);
 });
 
+test("Windows installer keeps watcher setup ahead of optional npm link", async () => {
+  const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
+  const wrappersIndex = installer.indexOf("installWindowsUserBinWrappers();");
+  const hotkeyIndex = installer.indexOf("appshot");
+  const npmLinkIndex = installer.indexOf("runNpmLink({ optional: true });");
+
+  assert.ok(wrappersIndex !== -1);
+  assert.ok(hotkeyIndex !== -1);
+  assert.ok(npmLinkIndex !== -1);
+  assert.ok(wrappersIndex < npmLinkIndex);
+  assert.ok(hotkeyIndex < npmLinkIndex);
+  assert.match(installer, /runNpmLink\(\{ optional: true \}\)/);
+});
+
 test("installer smoke installs Codex skills, prompts, and Claude commands in a temp HOME", async (t) => {
   const home = await makeTempDir(t);
   const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
@@ -375,14 +406,20 @@ test("installer smoke installs Codex skills, prompts, and Claude commands in a t
   const ddSkill = await fs.readFile(ddSkillPath, "utf8");
   const shorthandSkill = await fs.readFile(shorthandSkillPath, "utf8");
   assert.equal(skillFrontmatter(ddSkill).name, "dd");
+  assert.equal(skillFrontmatter(ddSkill).title, "LazyCopy:dd");
   assert.equal(skillFrontmatter(ddSkill)["user-invocable"], "true");
   assert.equal(skillFrontmatter(shorthandSkill).name, "ㅇㅇ");
+  assert.equal(skillFrontmatter(shorthandSkill).title, "LazyCopy:ㅇㅇ");
   assert.equal(skillFrontmatter(shorthandSkill)["user-invocable"], "true");
   assert.equal((await fs.lstat(shorthandSkillDir)).isSymbolicLink(), false);
   assert.equal((await fs.lstat(shorthandSkillPath)).isFile(), true);
 
-  await fs.access(path.join(home, ".codex", "prompts", "dd.md"));
-  await fs.access(path.join(home, ".codex", "prompts", "ㅇㅇ.md"));
+  const ddPrompt = await fs.readFile(path.join(home, ".codex", "prompts", "dd.md"), "utf8");
+  const shorthandPrompt = await fs.readFile(path.join(home, ".codex", "prompts", "ㅇㅇ.md"), "utf8");
+  assert.equal(skillFrontmatter(ddPrompt).title, "LazyCopy:dd");
+  assert.equal(skillFrontmatter(shorthandPrompt).title, "LazyCopy:ㅇㅇ");
+  assert.equal(skillFrontmatter(ddPrompt).description.startsWith("LazyCopy:dd"), true);
+  assert.equal(skillFrontmatter(shorthandPrompt).description.startsWith("LazyCopy:ㅇㅇ"), true);
   await fs.access(path.join(home, ".claude", "commands", "dd.md"));
   await fs.access(path.join(home, ".claude", "commands", "ㅇㅇ.md"));
 });
@@ -448,6 +485,31 @@ test("Windows installer writes stable ASCII-entrypoint user bin wrappers", async
   assert.match(ddSh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" dd "\$@"/);
   assert.match(shorthandSh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" dd "\$@"/);
   assert.match(lazycopySh, /\$USERPROFILE\/\.codex\/skills\/dd\/bin\/lazycopy\.js" "\$@"/);
+});
+
+test("Windows installer does not let npm link failure block user-bin wrappers", async (t) => {
+  const home = await makeTempDir(t);
+  const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      HOME: home,
+      USERPROFILE: home,
+      Path: home,
+      PATH: home,
+      LAZYCOPY_INSTALL_TEST_PLATFORM: "win32",
+      LAZYCOPY_INSTALL_SKIP_HOTKEY: "1",
+    },
+  });
+
+  assert.equal(install.status, 0, install.stderr);
+  assert.match(install.stderr, /Warning: npm link failed/);
+  assert.match(install.stdout, /Windows user-bin wrappers/);
+  assert.match(install.stdout, /watcher-managed Shift\+Space AppShot/);
+  await fs.access(path.join(home, "bin", "dd.cmd"));
+  await fs.access(path.join(home, "bin", "ㅇㅇ.cmd"));
+  await fs.access(path.join(home, "bin", "lazycopy.cmd"));
 });
 
 test("dd claude dry-run builds print argv from clipboard text", async (t) => {
@@ -590,14 +652,26 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
     path.join(repoRoot, "scripts", "windows-appshot-fast.ps1"),
     "utf8",
   );
+  const sound = await fs.readFile(path.join(repoRoot, "assets", "appshot.mp3"));
 
   assert.match(script, /Invoke-LazyCopyCaptureFlash/);
+  assert.match(script, /Start-LazyCopyCaptureSound/);
+  assert.match(script, /Close-LazyCopyCaptureSound/);
+  assert.match(script, /assets\\appshot\.mp3/);
   assert.match(script, /System\.Windows\.Forms\.Form/);
   assert.match(script, /Opacity\s*=\s*0\.38/);
-  assert.match(script, /Start-Sleep -Milliseconds 90/);
+  assert.match(script, /\$CaptureFlashMilliseconds = 120/);
+  assert.match(script, /Start-Sleep -Milliseconds \$CaptureFlashMilliseconds/);
+  assert.doesNotMatch(script, /Start-Sleep -Milliseconds 90/);
   assert.match(script, /ShowInTaskbar\s*=\s*\$false/);
   assert.match(script, /TopMost\s*=\s*\$true/);
-  assert.match(script, /Invoke-LazyCopyCaptureFlash -Left \$left -Top \$top -Width \$width -Height \$height/);
+  assert.match(script, /Invoke-LazyCopyCaptureFlash -Left \$left -Top \$top -Width \$width -Height \$height -SoundPath \$SoundPath/);
+  const flashInvocationIndex = script.indexOf("$captureSoundPlayer = Invoke-LazyCopyCaptureFlash");
+  const foregroundIndex = script.indexOf("[LazyCopyWin32AppShot]::SetForegroundWindow");
+  assert.ok(flashInvocationIndex !== -1);
+  assert.ok(foregroundIndex !== -1);
+  assert.ok(flashInvocationIndex < foregroundIndex);
+  assert.ok(sound.length > 1024);
 });
 
 test("Windows appshot desktop falls back when fast helper is not safe", async (t) => {

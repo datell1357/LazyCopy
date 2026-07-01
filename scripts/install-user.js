@@ -14,6 +14,7 @@ const claudeCommandsDir = path.join(claudeRoot, "commands");
 const ddSkillDir = path.join(skillsDir, "dd");
 const shorthandSkillDir = path.join(skillsDir, "ㅇㅇ");
 const promptSource = path.join(repoRoot, "prompts", "dd.md");
+const shorthandPromptSource = path.join(repoRoot, "prompts", "ㅇㅇ.md");
 const promptTarget = path.join(promptsDir, "dd.md");
 const shorthandPromptTarget = path.join(promptsDir, "ㅇㅇ.md");
 const claudeCommandSource = path.join(repoRoot, "commands", "dd.md");
@@ -48,9 +49,20 @@ function run(command, args, options = {}) {
     shell: false,
     windowsHide: platform === "win32",
   });
-  if (result.status !== 0) {
-    process.exit(result.status ?? 1);
+  if (result.error || result.status !== 0) {
+    const status = result.status ?? 1;
+    if (options.optional) {
+      const detail = result.error ? `${result.error.code || "ERROR"} ${result.error.message}` : `exit ${status}`;
+      console.warn(`Warning: ${command} ${args.join(" ")} failed (${detail}); continuing.`);
+      return { ok: false, status, error: result.error };
+    }
+    process.exit(status);
   }
+  return { ok: true, status: 0 };
+}
+
+function runNpmLink(options = {}) {
+  return run("npm", ["link"], options);
 }
 
 function sameExistingPath(left, right) {
@@ -99,7 +111,7 @@ function installShorthandSkill() {
 function installPrompt() {
   fs.mkdirSync(promptsDir, { recursive: true });
   fs.copyFileSync(promptSource, promptTarget);
-  fs.copyFileSync(promptSource, shorthandPromptTarget);
+  fs.copyFileSync(shorthandPromptSource, shorthandPromptTarget);
 }
 
 function installClaudeCommands() {
@@ -157,9 +169,6 @@ ensureDdSkill();
 installShorthandSkill();
 installPrompt();
 installClaudeCommands();
-if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
-  run("npm", ["link"]);
-}
 
 if (isWindows()) {
   installWindowsUserBinWrappers();
@@ -175,7 +184,13 @@ if (isWindows()) {
       "Codex",
     ]);
   }
+  if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
+    runNpmLink({ optional: true });
+  }
   console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, Claude Code /ㅇㅇ, and watcher-managed Shift+Space AppShot.");
 } else {
+  if (process.env.LAZYCOPY_INSTALL_SKIP_NPM_LINK !== "1") {
+    runNpmLink();
+  }
   console.log("LazyCopy installed as /dd, $dd, /ㅇㅇ, $ㅇㅇ, dd, ㅇㅇ, Claude Code /dd, and Claude Code /ㅇㅇ. Shift+Space AppShot auto-install is Windows-only.");
 }

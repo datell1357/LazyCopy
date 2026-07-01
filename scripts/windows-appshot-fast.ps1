@@ -1,10 +1,17 @@
 param(
   [Parameter(Mandatory = $true)][string]$TargetPath,
   [ValidateSet("active-window", "fullscreen", "region")][string]$Mode = "active-window",
-  [string]$AppName = "Codex"
+  [string]$AppName = "Codex",
+  [string]$SoundPath = ""
 )
 
 $ErrorActionPreference = "Stop"
+$CaptureFlashMilliseconds = 120
+$CaptureSoundKeepAliveMilliseconds = 700
+
+if (-not $SoundPath) {
+  $SoundPath = Join-Path (Split-Path -Parent $PSScriptRoot) "assets\appshot.mp3"
+}
 
 if ($Mode -eq "region") {
   throw "Windows region capture is not implemented. Use active-window or fullscreen."
@@ -36,15 +43,54 @@ public static class LazyCopyWin32AppShot {
 }
 "@
 
+function Start-LazyCopyCaptureSound {
+  param(
+    [string]$Path
+  )
+
+  if (-not $Path -or -not (Test-Path -LiteralPath $Path)) {
+    return $null
+  }
+
+  try {
+    Add-Type -AssemblyName PresentationCore
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).Path
+    $player = New-Object System.Windows.Media.MediaPlayer
+    $player.Open((New-Object System.Uri -ArgumentList $resolvedPath))
+    $player.Volume = 1.0
+    $player.Play()
+    return $player
+  } catch {
+    return $null
+  }
+}
+
+function Close-LazyCopyCaptureSound {
+  param(
+    $Player
+  )
+
+  if ($null -eq $Player) {
+    return
+  }
+
+  try {
+    $Player.Close()
+  } catch {
+  }
+}
+
 function Invoke-LazyCopyCaptureFlash {
   param(
     [int]$Left,
     [int]$Top,
     [int]$Width,
-    [int]$Height
+    [int]$Height,
+    [string]$SoundPath
   )
 
   $form = New-Object System.Windows.Forms.Form
+  $soundPlayer = Start-LazyCopyCaptureSound -Path $SoundPath
   try {
     $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
@@ -55,11 +101,16 @@ function Invoke-LazyCopyCaptureFlash {
     $form.Bounds = New-Object System.Drawing.Rectangle -ArgumentList $Left, $Top, $Width, $Height
     $form.Show()
     $form.Refresh()
-    Start-Sleep -Milliseconds 90
+    Start-Sleep -Milliseconds $CaptureFlashMilliseconds
+  } catch {
+    Close-LazyCopyCaptureSound -Player $soundPlayer
+    throw
   } finally {
     $form.Close()
     $form.Dispose()
   }
+
+  return $soundPlayer
 }
 
 if ($Mode -eq "fullscreen") {
@@ -108,8 +159,9 @@ try {
   $bitmap.Dispose()
 }
 
+$captureSoundPlayer = $null
 try {
-  Invoke-LazyCopyCaptureFlash -Left $left -Top $top -Width $width -Height $height
+  $captureSoundPlayer = Invoke-LazyCopyCaptureFlash -Left $left -Top $top -Width $width -Height $height -SoundPath $SoundPath
 } catch {
   # Visual feedback is best-effort; keep the capture and paste flow alive.
 }
@@ -129,6 +181,10 @@ if ($null -eq $process) {
 [LazyCopyWin32AppShot]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
 Start-Sleep -Milliseconds 200
 [System.Windows.Forms.SendKeys]::SendWait("^v")
+if ($null -ne $captureSoundPlayer) {
+  Start-Sleep -Milliseconds $CaptureSoundKeepAliveMilliseconds
+  Close-LazyCopyCaptureSound -Player $captureSoundPlayer
+}
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 @{

@@ -1,5 +1,7 @@
 ---
 name: dd
+title: "LazyCopy:dd"
+display-name: "LazyCopy:dd"
 description: Drop the current OS clipboard text or image into Codex through LazyCopy.
 argument-hint: "[request about the clipboard, optional]"
 user-invocable: true
@@ -13,7 +15,6 @@ Trigger this skill for:
 
 - `$dd <message>`
 - `/dd <message>`
-- `$ㅇㅇ <message>`
 - `/ㅇㅇ <message>`
 - `dd <message>`
 - `ㅇㅇ <message>`
