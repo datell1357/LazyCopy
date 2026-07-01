@@ -1,17 +1,23 @@
+<div align="center">
+
 # LazyCopy
 
 Stop pasting walls of context. Let Codex use the window or clipboard you already have.
 
 Windows-first AppShot + `dd` for Codex: press one hotkey to send the active window into Codex Desktop, or type one short `dd` message to hand over the latest clipboard text/image.
 
-![Windows first](https://img.shields.io/badge/Windows-first-0078D4?style=flat-square)
-![Codex Desktop](https://img.shields.io/badge/Codex-Desktop%20%2B%20CLI-111111?style=flat-square)
-![AppShot](https://img.shields.io/badge/AppShot-Shift%2BSpace-5B8DEF?style=flat-square)
-![dd](https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64?style=flat-square)
-![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
-![GitHub stars](https://img.shields.io/github/stars/datell1357/LazyCopy?style=flat-square)
+<p>
+  <a href="#trust--setup"><img src="https://img.shields.io/badge/Windows-first-0078D4" alt="Windows first"></a>
+  <a href="#install-from-codex-desktop"><img src="https://img.shields.io/badge/Codex-Desktop%20%2B%20CLI-111111" alt="Codex Desktop and CLI"></a>
+  <a href="#appshot"><img src="https://img.shields.io/badge/AppShot-Shift%2BSpace-5B8DEF" alt="AppShot Shift+Space"></a>
+  <a href="#dd"><img src="https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64" alt="dd commands"></a>
+  <a href="#dd-attribution"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://github.com/datell1357/LazyCopy/stargazers"><img src="https://img.shields.io/github/stars/datell1357/LazyCopy?color=F0B72F" alt="GitHub stars"></a>
+</p>
 
-Install · Start here · Pick by the moment · Trust & setup · Commands
+<sub><a href="#install">Install</a> · <a href="#start-here">Start here</a> · <a href="#pick-by-the-moment">Pick by the moment</a> · <a href="#trust--setup">Trust & setup</a> · <a href="#commands">Commands</a></sub>
+
+</div>
 
 ---
 
@@ -85,6 +91,18 @@ Expected behavior:
 - LazyCopy does not submit the message.
 
 Codex Desktop must already be running with a visible window for the paste step. If it is closed, the hotkey listener still fires, but the paste command cannot find a Codex window.
+
+If `Shift+Space` appears silent, run the listener in the foreground:
+
+```powershell
+dd appshot hotkey run --key shift+space --app Codex
+```
+
+It should print `LazyCopy hotkey listening: shift+space`. Registration failures and key presses are also written to:
+
+```text
+%LOCALAPPDATA%\LazyCopy\appshot-hotkey.log
+```
 
 ### dd
 
