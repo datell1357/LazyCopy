@@ -2,7 +2,8 @@ param(
   [string]$TargetPath = "",
   [ValidateSet("active-window", "fullscreen", "region")][string]$Mode = "active-window",
   [string]$AppName = "Codex",
-  [string]$SoundPath = ""
+  [string]$SoundPath = "",
+  [string]$LogPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,10 +39,25 @@ public static class LazyCopyWin32AppShot {
   public static extern IntPtr GetForegroundWindow();
 
   [DllImport("user32.dll")]
+  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+  [DllImport("kernel32.dll")]
+  public static extern uint GetCurrentThreadId();
+
+  [DllImport("user32.dll")]
+  public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+  [DllImport("user32.dll")]
   public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
   [DllImport("user32.dll")]
   public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+  [DllImport("user32.dll")]
+  public static extern bool BringWindowToTop(IntPtr hWnd);
+
+  [DllImport("user32.dll")]
+  public static extern IntPtr SetActiveWindow(IntPtr hWnd);
 
   [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
   public static extern int mciSendString(string command, StringBuilder returnValue, int returnLength, IntPtr winHandle);
@@ -52,6 +68,22 @@ $createdTemporaryTarget = $false
 if (-not $TargetPath) {
   $TargetPath = Join-Path ([System.IO.Path]::GetTempPath()) ("lazycopy-appshot-" + [System.Guid]::NewGuid().ToString("N") + ".png")
   $createdTemporaryTarget = $true
+}
+
+function Write-LazyCopyFastLog([string]$Message) {
+  if (-not $LogPath) {
+    return
+  }
+
+  try {
+    $parent = Split-Path -Parent $LogPath
+    if ($parent) {
+      New-Item -ItemType Directory -Force $parent | Out-Null
+    }
+    $timestamp = (Get-Date).ToString("o")
+    Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
+  } catch {
+  }
 }
 
 function Start-LazyCopyCaptureSound {
@@ -130,6 +162,72 @@ function Invoke-LazyCopyCaptureFlash {
   return $soundPlayer
 }
 
+function Test-LazyCopyForegroundWindow {
+  param(
+    [IntPtr]$Handle
+  )
+
+  return [LazyCopyWin32AppShot]::GetForegroundWindow() -eq $Handle
+}
+
+function Set-LazyCopyForegroundWindow {
+  param(
+    [IntPtr]$Handle
+  )
+
+  $currentThreadId = [LazyCopyWin32AppShot]::GetCurrentThreadId()
+  $foregroundHandle = [LazyCopyWin32AppShot]::GetForegroundWindow()
+  $targetProcessId = [uint32]0
+  $foregroundProcessId = [uint32]0
+  $targetThreadId = [LazyCopyWin32AppShot]::GetWindowThreadProcessId($Handle, [ref]$targetProcessId)
+  $foregroundThreadId = [LazyCopyWin32AppShot]::GetWindowThreadProcessId($foregroundHandle, [ref]$foregroundProcessId)
+  $attachedTarget = $false
+  $attachedForeground = $false
+
+  try {
+    if ($targetThreadId -ne 0 -and $targetThreadId -ne $currentThreadId) {
+      $attachedTarget = [LazyCopyWin32AppShot]::AttachThreadInput($currentThreadId, $targetThreadId, $true)
+    }
+    if ($foregroundThreadId -ne 0 -and $foregroundThreadId -ne $currentThreadId -and $foregroundThreadId -ne $targetThreadId) {
+      $attachedForeground = [LazyCopyWin32AppShot]::AttachThreadInput($currentThreadId, $foregroundThreadId, $true)
+    }
+
+    [LazyCopyWin32AppShot]::BringWindowToTop($Handle) | Out-Null
+    [LazyCopyWin32AppShot]::SetActiveWindow($Handle) | Out-Null
+    [LazyCopyWin32AppShot]::SetForegroundWindow($Handle) | Out-Null
+  } finally {
+    if ($attachedForeground) {
+      [LazyCopyWin32AppShot]::AttachThreadInput($currentThreadId, $foregroundThreadId, $false) | Out-Null
+    }
+    if ($attachedTarget) {
+      [LazyCopyWin32AppShot]::AttachThreadInput($currentThreadId, $targetThreadId, $false) | Out-Null
+    }
+  }
+
+  $deadline = [Environment]::TickCount64 + 500
+  while ([Environment]::TickCount64 -lt $deadline) {
+    if (Test-LazyCopyForegroundWindow -Handle $Handle) {
+      return $true
+    }
+    Start-Sleep -Milliseconds 10
+  }
+
+  return Test-LazyCopyForegroundWindow -Handle $Handle
+}
+
+function Invoke-LazyCopyAppActivate {
+  param(
+    [int]$ProcessId
+  )
+
+  try {
+    $shell = New-Object -ComObject WScript.Shell
+    return [bool]$shell.AppActivate($ProcessId)
+  } catch {
+    return $false
+  }
+}
+
 if ($Mode -eq "fullscreen") {
   $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $left = $bounds.Left
@@ -158,6 +256,8 @@ if ($Mode -eq "fullscreen") {
 if ($width -le 0 -or $height -le 0) {
   throw "The capture area is empty."
 }
+
+Write-LazyCopyFastLog "appshot-start mode=$Mode app=$AppName"
 
 $captureSoundPlayer = $null
 try {
@@ -196,11 +296,21 @@ $process = Get-Process |
   Select-Object -First 1
 
 if ($null -eq $process) {
+  Write-LazyCopyFastLog "appshot-foreground-failed reason=missing-app app=$AppName"
   throw "Could not find a visible window for $AppName."
 }
 
-[LazyCopyWin32AppShot]::SetForegroundWindow($process.MainWindowHandle) | Out-Null
+if (-not (Set-LazyCopyForegroundWindow -Handle $process.MainWindowHandle)) {
+  Invoke-LazyCopyAppActivate -ProcessId $process.Id | Out-Null
+}
+
+if (-not (Set-LazyCopyForegroundWindow -Handle $process.MainWindowHandle)) {
+  Write-LazyCopyFastLog "appshot-foreground-failed reason=not-foreground app=$AppName pid=$($process.Id)"
+  throw "Could not bring $AppName to the foreground; refusing to paste into the current window."
+}
+Write-LazyCopyFastLog "appshot-foreground-ok app=$AppName pid=$($process.Id)"
 [System.Windows.Forms.SendKeys]::SendWait("^v")
+Write-LazyCopyFastLog "appshot-pasted app=$AppName"
 if ($null -ne $captureSoundPlayer) {
   Start-Sleep -Milliseconds $CaptureSoundKeepAliveMilliseconds
   Close-LazyCopyCaptureSound -Player $captureSoundPlayer

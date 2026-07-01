@@ -661,6 +661,15 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.match(script, /winmm\.dll/);
   assert.match(script, /mciSendString/);
   assert.match(script, /type mpegvideo alias/);
+  assert.match(script, /AttachThreadInput/);
+  assert.match(script, /BringWindowToTop/);
+  assert.match(script, /SetActiveWindow/);
+  assert.match(script, /AppActivate\(\$ProcessId\)/);
+  assert.match(script, /Invoke-LazyCopyAppActivate -ProcessId \$process\.Id/);
+  assert.match(script, /Set-LazyCopyForegroundWindow -Handle \$process\.MainWindowHandle/);
+  assert.match(script, /refusing to paste into the current window/);
+  assert.match(script, /appshot-foreground-ok/);
+  assert.match(script, /appshot-pasted/);
   assert.match(script, /System\.Windows\.Forms\.Form/);
   assert.match(script, /Opacity\s*=\s*0\.38/);
   assert.match(script, /\$CaptureFlashMilliseconds = 120/);
@@ -675,7 +684,7 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.match(script, /Remove-Item -LiteralPath \$TargetPath/);
   const flashInvocationIndex = script.indexOf("$captureSoundPlayer = Invoke-LazyCopyCaptureFlash");
   const captureIndex = script.indexOf("$graphics.CopyFromScreen");
-  const foregroundIndex = script.indexOf("[LazyCopyWin32AppShot]::SetForegroundWindow");
+  const foregroundIndex = script.indexOf("Set-LazyCopyForegroundWindow -Handle $process.MainWindowHandle");
   const pasteIndex = script.indexOf('[System.Windows.Forms.SendKeys]::SendWait("^v")');
   assert.ok(flashInvocationIndex !== -1);
   assert.ok(captureIndex !== -1);
@@ -685,7 +694,7 @@ test("Windows fast AppShot helper provides a brief visual capture flash", async 
   assert.ok(captureIndex < foregroundIndex);
   assert.ok(script.indexOf("Start-Sleep -Milliseconds $CapturePostFlashDelayMilliseconds") < foregroundIndex);
   assert.ok(foregroundIndex < pasteIndex);
-  assert.doesNotMatch(script.slice(foregroundIndex, pasteIndex), /Start-Sleep/);
+  assert.doesNotMatch(script, /Start-Sleep -Milliseconds 200/);
   assert.ok(sound.length > 1024);
 });
 
@@ -852,20 +861,25 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
   assert.match(payload.startupCommand, /powershell\.exe/);
   assert.match(payload.startupCommand, /-WindowStyle Hidden/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
-  assert.deepEqual(listenerCommand.slice(-11), [
+  const fastScriptIndex = listenerCommand.findIndex((value) => /windows-appshot-fast\.ps1$/.test(value));
+  assert.ok(fastScriptIndex !== -1);
+  assert.deepEqual(listenerCommand.slice(fastScriptIndex - 6, fastScriptIndex + 5), [
     "powershell.exe",
     "-NoProfile",
     "-ExecutionPolicy",
     "Bypass",
     "-STA",
     "-File",
-    listenerCommand.at(-5),
+    listenerCommand[fastScriptIndex],
     "-Mode",
     "active-window",
     "-AppName",
     "Codex",
   ]);
-  assert.match(listenerCommand.at(-5), /windows-appshot-fast\.ps1$/);
+  assert.deepEqual(listenerCommand.slice(fastScriptIndex + 5), [
+    "-LogPath",
+    "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
+  ]);
   assert.doesNotMatch(listenerCommand.join("\n"), /bin[/\\]lazycopy\.js/);
   assert.doesNotMatch(listenerCommand.join("\n"), /appshot\n/);
 });
@@ -1187,6 +1201,9 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
   assert.match(script, /SetWindowsHookEx/);
   assert.match(script, /PostThreadMessage/);
   assert.match(script, /WM_LAZYCOPY_SHIFT_SPACE/);
+  assert.match(script, /WM_KEYUP/);
+  assert.match(script, /WM_SYSKEYUP/);
+  assert.match(script, /shiftSpaceArmed/);
   assert.match(script, /return \(IntPtr\)1;/);
   assert.match(script, /\$HotkeyCooldownMilliseconds = 250/);
   assert.match(script, /Test-LazyCopyShiftSpaceHookEnabled/);
@@ -1283,11 +1300,15 @@ test("windows paste script does not restore or resize the target app window", as
   for (const script of scripts) {
     assert.doesNotMatch(script, new RegExp(`${showWindowAsync}\\([^\\n]+,\\s*9\\)`));
     assert.doesNotMatch(script, new RegExp(restoreOrResize, "i"));
-    const foregroundIndex = script.indexOf("::SetForegroundWindow");
+    assert.match(script, /AppActivate\(\$ProcessId\)/);
+    assert.match(script, /Invoke-LazyCopyAppActivate -ProcessId \$process\.Id/);
+    assert.match(script, /Set-LazyCopyForegroundWindow -Handle \$process\.MainWindowHandle/);
+    assert.match(script, /refusing to paste into the current window/);
+    const foregroundIndex = script.indexOf("Set-LazyCopyForegroundWindow -Handle $process.MainWindowHandle");
     const pasteIndex = script.indexOf('[System.Windows.Forms.SendKeys]::SendWait("^v")');
     assert.ok(foregroundIndex !== -1);
     assert.ok(pasteIndex !== -1);
     assert.ok(foregroundIndex < pasteIndex);
-    assert.doesNotMatch(script.slice(foregroundIndex, pasteIndex), /Start-Sleep/);
+    assert.doesNotMatch(script, /Start-Sleep -Milliseconds 200/);
   }
 });
