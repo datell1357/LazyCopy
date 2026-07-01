@@ -1,6 +1,7 @@
 param(
   [string]$Key = "shift+space",
   [string]$LogPath,
+  [string]$CommandBase64,
   [Parameter(ValueFromRemainingArguments = $true)][string[]]$Command
 )
 
@@ -23,7 +24,26 @@ function Write-LazyCopyLog([string]$Message) {
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
 }
 
+function Get-LazyCopyTickMilliseconds {
+  return [int64]([Math]::Floor(([double][System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0) / [double][System.Diagnostics.Stopwatch]::Frequency))
+}
+
 Write-LazyCopyLog "start key=$Key"
+
+function ConvertFrom-LazyCopyCommandBase64([string]$Value) {
+  try {
+    $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
+    $decoded = ConvertFrom-Json -InputObject $json
+    return @($decoded | ForEach-Object { [string]$_ })
+  } catch {
+    Write-LazyCopyLog "failed invalid-command-base64 message=$($_.Exception.Message)"
+    throw
+  }
+}
+
+if ($CommandBase64) {
+  $Command = ConvertFrom-LazyCopyCommandBase64 $CommandBase64
+}
 
 if ($Command.Count -eq 0) {
   Write-LazyCopyLog "failed missing-command"
@@ -219,7 +239,7 @@ function Start-LazyCopyHotkeyCommand {
 }
 
 function Invoke-LazyCopyHotkeyFire([string]$Source) {
-  $now = [Environment]::TickCount64
+  $now = Get-LazyCopyTickMilliseconds
   $elapsed = $now - $script:LastHotkeyFireTick
   if ($script:LastHotkeyFireTick -ne 0 -and $elapsed -lt $HotkeyCooldownMilliseconds) {
     Write-LazyCopyLog "hotkey-suppressed key=$Key source=$Source elapsed=$elapsed"

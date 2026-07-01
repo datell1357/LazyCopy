@@ -364,6 +364,9 @@ test("installer exposes Claude Code slash commands for dd", async () => {
 test("installer uses direct spawn so Windows Node paths with spaces stay intact", async () => {
   const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
 
+  assert.match(installer, /resolveRunInvocation/);
+  assert.match(installer, /command:\s*"cmd\.exe"/);
+  assert.match(installer, /"\/d",\s*"\/s",\s*"\/c",\s*"npm\.cmd"/);
   assert.match(installer, /shell:\s*false/);
   assert.doesNotMatch(installer, /shell:\s*process\.platform\s*===\s*"win32"/);
 });
@@ -855,33 +858,37 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
     "shift+space",
     "-LogPath",
     "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
-    "powershell.exe",
+    "-CommandBase64",
   ]);
+  const fastCommand = JSON.parse(Buffer.from(listenerCommand[12], "base64").toString("utf8"));
   assert.equal(payload.command.includes("run"), false);
   assert.match(payload.startupCommand, /powershell\.exe/);
   assert.match(payload.startupCommand, /-WindowStyle Hidden/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
-  const fastScriptIndex = listenerCommand.findIndex((value) => /windows-appshot-fast\.ps1$/.test(value));
+  const fastScriptIndex = fastCommand.findIndex((value) => /windows-appshot-fast\.ps1$/.test(value));
   assert.ok(fastScriptIndex !== -1);
-  assert.deepEqual(listenerCommand.slice(fastScriptIndex - 6, fastScriptIndex + 5), [
+  assert.deepEqual(fastCommand.slice(fastScriptIndex - 6, fastScriptIndex + 5), [
     "powershell.exe",
     "-NoProfile",
     "-ExecutionPolicy",
     "Bypass",
     "-STA",
     "-File",
-    listenerCommand[fastScriptIndex],
+    fastCommand[fastScriptIndex],
     "-Mode",
     "active-window",
     "-AppName",
     "Codex",
   ]);
-  assert.deepEqual(listenerCommand.slice(fastScriptIndex + 5), [
+  assert.deepEqual(fastCommand.slice(fastScriptIndex + 5), [
     "-LogPath",
     "C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey.log",
   ]);
+  assert.equal(listenerCommand.filter((value) => value === "-LogPath").length, 1);
+  assert.equal(fastCommand.filter((value) => value === "-LogPath").length, 1);
   assert.doesNotMatch(listenerCommand.join("\n"), /bin[/\\]lazycopy\.js/);
   assert.doesNotMatch(listenerCommand.join("\n"), /appshot\n/);
+  assert.doesNotMatch(listenerCommand.join("\n"), /windows-appshot-fast\.ps1/);
 });
 
 test("Windows appshot hotkey install starts the watcher process", async (t) => {
@@ -924,6 +931,13 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
     Buffer.from(installed[0].command[installed[0].command.indexOf("-ListenerCommandBase64") + 1], "base64").toString("utf8"),
   );
   assert.match(listenerCommand[6], /windows-hotkey\.ps1$/);
+  assert.equal(listenerCommand.includes("-CommandBase64"), true);
+  assert.equal(listenerCommand.filter((value) => value === "-LogPath").length, 1);
+  const fastCommand = JSON.parse(
+    Buffer.from(listenerCommand[listenerCommand.indexOf("-CommandBase64") + 1], "base64").toString("utf8"),
+  );
+  assert.equal(fastCommand.some((value) => /windows-appshot-fast\.ps1$/.test(value)), true);
+  assert.equal(fastCommand.filter((value) => value === "-LogPath").length, 1);
   assert.equal(installed[0].command.includes("run"), false);
   assert.match(installed[0].options.startupCommand, /-WindowStyle Hidden/);
 
@@ -1015,7 +1029,15 @@ fs.writeFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(
   assert.equal(exitCode, 0);
   const args = JSON.parse(await fs.readFile(argvPath, "utf8"));
   assert.match(args[5], /windows-hotkey\.ps1$/);
+  assert.equal(args.includes("-CommandBase64"), true);
+  assert.equal(args.filter((value) => value === "-LogPath").length, 1);
+  const command = JSON.parse(
+    Buffer.from(args[args.indexOf("-CommandBase64") + 1], "base64").toString("utf8"),
+  );
+  assert.equal(command.some((value) => /windows-appshot-fast\.ps1$/.test(value)), true);
+  assert.equal(command.filter((value) => value === "-LogPath").length, 1);
   assert.doesNotMatch(args.join("\n"), /windows-appshot-watch\.ps1/);
+  assert.doesNotMatch(args.join("\n"), /windows-appshot-fast\.ps1/);
 });
 
 test("Windows watcher helper manages the visible Codex listener lifecycle", async () => {
@@ -1031,6 +1053,10 @@ test("Windows watcher helper manages the visible Codex listener lifecycle", asyn
   assert.match(script, /\[string\]\$ListenerCommandBase64/);
   assert.match(script, /\[string\]\$SelfUpdateCommandBase64/);
   assert.match(script, /FromBase64String\(\$Value\)/);
+  assert.match(script, /ConvertTo-LazyCopyPowerShellArgument/);
+  assert.match(script, /Start-LazyCopyHiddenProcess/);
+  assert.match(script, /-ArgumentList \$argumentList/);
+  assert.match(script, /-replace "'", "''"/);
   assert.match(script, /\[regex\]::Escape\(\$AppName\)/);
   assert.match(script, /MainWindowHandle -ne 0/);
   assert.match(script, /ProcessName -match \$escaped/);
@@ -1195,6 +1221,13 @@ test("Windows hotkey helper exposes a stable log path and lifecycle markers", as
   );
 
   assert.match(script, /\[string\]\$LogPath/);
+  assert.match(script, /\[string\]\$CommandBase64/);
+  assert.match(script, /ConvertFrom-LazyCopyCommandBase64/);
+  assert.match(script, /invalid-command-base64/);
+  assert.match(script, /Get-LazyCopyTickMilliseconds/);
+  assert.match(script, /Stopwatch\]::GetTimestamp/);
+  assert.match(script, /\$now = Get-LazyCopyTickMilliseconds/);
+  assert.doesNotMatch(script, /TickCount64/);
   assert.match(script, /LazyCopy\\appshot-hotkey\.log/);
   assert.match(script, /GetAsyncKeyState/);
   assert.match(script, /WH_KEYBOARD_LL/);
@@ -1246,6 +1279,22 @@ test("Windows hotkey helper keeps listening when an appshot launch fails", async
   assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "registered"/);
   assert.match(messageLoopHotkeyBlock, /Invoke-LazyCopyHotkeyFire "keyboard-hook"/);
   assert.doesNotMatch(messageLoopHotkeyBlock, /Start-Process/);
+});
+
+test("Windows PowerShell timing avoids TickCount64 for Windows PowerShell compatibility", async () => {
+  const scriptNames = [
+    "windows-hotkey.ps1",
+    "windows-appshot-watch.ps1",
+    "windows-appshot-fast.ps1",
+    "windows-paste-into-app.ps1",
+  ];
+
+  for (const scriptName of scriptNames) {
+    const script = await fs.readFile(path.join(repoRoot, "scripts", scriptName), "utf8");
+    assert.match(script, /Get-LazyCopyTickMilliseconds/);
+    assert.match(script, /Stopwatch\]::GetTimestamp/);
+    assert.doesNotMatch(script, /TickCount64/);
+  }
 });
 
 test("lazycopy help exposes appshot, dd, Codex, Claude Code, and Shift+Space surfaces", async () => {

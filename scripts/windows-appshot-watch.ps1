@@ -36,6 +36,10 @@ function Write-LazyCopyLog([string]$Message) {
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8
 }
 
+function Get-LazyCopyTickMilliseconds {
+  return [int64]([Math]::Floor(([double][System.Diagnostics.Stopwatch]::GetTimestamp() * 1000.0) / [double][System.Diagnostics.Stopwatch]::Frequency))
+}
+
 function ConvertFrom-LazyCopyCommandBase64([string]$Value, [string]$Label) {
   try {
     $json = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Value))
@@ -56,6 +60,19 @@ if ($SelfUpdateCommandBase64) {
   $SelfUpdateCommand = ConvertFrom-LazyCopyCommandBase64 $SelfUpdateCommandBase64 "update"
 }
 
+function ConvertTo-LazyCopyPowerShellArgument([string]$Value) {
+  return "'" + ($Value -replace "'", "''") + "'"
+}
+
+function Start-LazyCopyHiddenProcess([string[]]$Command) {
+  if ($Command.Count -eq 1) {
+    return Start-Process -FilePath $Command[0] -WindowStyle Hidden -PassThru
+  }
+
+  $argumentList = @($Command[1..($Command.Count - 1)] | ForEach-Object { ConvertTo-LazyCopyPowerShellArgument $_ })
+  return Start-Process -FilePath $Command[0] -ArgumentList $argumentList -WindowStyle Hidden -PassThru
+}
+
 function Test-LazyCopyCodexVisible {
   $escaped = [regex]::Escape($AppName)
   $matches = Get-Process -ErrorAction SilentlyContinue | Where-Object {
@@ -71,11 +88,7 @@ function Start-LazyCopyListener {
   }
 
   Write-LazyCopyLog "listener-start key=$Key"
-  if ($ListenerCommand.Count -eq 1) {
-    $process = Start-Process -FilePath $ListenerCommand[0] -WindowStyle Hidden -PassThru
-  } else {
-    $process = Start-Process -FilePath $ListenerCommand[0] -ArgumentList $ListenerCommand[1..($ListenerCommand.Count - 1)] -WindowStyle Hidden -PassThru
-  }
+  $process = Start-LazyCopyHiddenProcess $ListenerCommand
   Write-LazyCopyLog "listener-started pid=$($process.Id)"
   return $process
 }
@@ -119,7 +132,7 @@ function Start-LazyCopySelfUpdate {
     return
   }
 
-  $now = [Environment]::TickCount64
+  $now = Get-LazyCopyTickMilliseconds
   if ($script:LastUpdateCheckTick -ne 0) {
     $elapsedSeconds = [Math]::Floor(($now - $script:LastUpdateCheckTick) / 1000)
     if ($elapsedSeconds -lt $UpdateCheckMinSeconds) {
@@ -130,11 +143,7 @@ function Start-LazyCopySelfUpdate {
 
   $script:LastUpdateCheckTick = $now
   try {
-    if ($SelfUpdateCommand.Count -eq 1) {
-      $script:UpdateProcess = Start-Process -FilePath $SelfUpdateCommand[0] -WindowStyle Hidden -PassThru
-    } else {
-      $script:UpdateProcess = Start-Process -FilePath $SelfUpdateCommand[0] -ArgumentList $SelfUpdateCommand[1..($SelfUpdateCommand.Count - 1)] -WindowStyle Hidden -PassThru
-    }
+    $script:UpdateProcess = Start-LazyCopyHiddenProcess $SelfUpdateCommand
     Write-LazyCopyLog "update-check-started pid=$($script:UpdateProcess.Id)"
   } catch {
     Write-LazyCopyLog "update-check-failed message=$($_.Exception.Message)"
