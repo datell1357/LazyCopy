@@ -36,6 +36,32 @@ public static class LazyCopyWin32AppShot {
 }
 "@
 
+function Invoke-LazyCopyCaptureFlash {
+  param(
+    [int]$Left,
+    [int]$Top,
+    [int]$Width,
+    [int]$Height
+  )
+
+  $form = New-Object System.Windows.Forms.Form
+  try {
+    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::None
+    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+    $form.ShowInTaskbar = $false
+    $form.TopMost = $true
+    $form.BackColor = [System.Drawing.Color]::White
+    $form.Opacity = 0.38
+    $form.Bounds = New-Object System.Drawing.Rectangle -ArgumentList $Left, $Top, $Width, $Height
+    $form.Show()
+    $form.Refresh()
+    Start-Sleep -Milliseconds 90
+  } finally {
+    $form.Close()
+    $form.Dispose()
+  }
+}
+
 if ($Mode -eq "fullscreen") {
   $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
   $left = $bounds.Left
@@ -80,6 +106,12 @@ try {
 } finally {
   $graphics.Dispose()
   $bitmap.Dispose()
+}
+
+try {
+  Invoke-LazyCopyCaptureFlash -Left $left -Top $top -Width $width -Height $height
+} catch {
+  # Visual feedback is best-effort; keep the capture and paste flow alive.
 }
 
 $escaped = [regex]::Escape($AppName)

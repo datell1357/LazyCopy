@@ -541,6 +541,21 @@ test("Windows appshot desktop uses one fast capture-copy-paste helper when safe"
   assert.equal(system.calls[0][3], "Codex");
 });
 
+test("Windows fast AppShot helper provides a brief visual capture flash", async () => {
+  const script = await fs.readFile(
+    path.join(repoRoot, "scripts", "windows-appshot-fast.ps1"),
+    "utf8",
+  );
+
+  assert.match(script, /Invoke-LazyCopyCaptureFlash/);
+  assert.match(script, /System\.Windows\.Forms\.Form/);
+  assert.match(script, /Opacity\s*=\s*0\.38/);
+  assert.match(script, /Start-Sleep -Milliseconds 90/);
+  assert.match(script, /ShowInTaskbar\s*=\s*\$false/);
+  assert.match(script, /TopMost\s*=\s*\$true/);
+  assert.match(script, /Invoke-LazyCopyCaptureFlash -Left \$left -Top \$top -Width \$width -Height \$height/);
+});
+
 test("Windows appshot desktop falls back when fast helper is not safe", async (t) => {
   const outputRoot = await makeTempDir(t);
   const stdout = captureWrites();
@@ -793,10 +808,16 @@ test("launchAgentPlist escapes argument values", () => {
 });
 
 test("windows paste script does not restore or resize the target app window", async () => {
-  const script = await fs.readFile(
-    path.join(repoRoot, "scripts", "windows-paste-into-app.ps1"),
-    "utf8",
-  );
+  const scripts = [
+    await fs.readFile(
+      path.join(repoRoot, "scripts", "windows-paste-into-app.ps1"),
+      "utf8",
+    ),
+    await fs.readFile(
+      path.join(repoRoot, "scripts", "windows-appshot-fast.ps1"),
+      "utf8",
+    ),
+  ];
 
   const showWindowAsync = ["Show", "WindowAsync"].join("");
   const restoreOrResize = [
@@ -807,6 +828,8 @@ test("windows paste script does not restore or resize the target app window", as
     "Resize",
   ].join("|");
 
-  assert.doesNotMatch(script, new RegExp(`${showWindowAsync}\\([^\\n]+,\\s*9\\)`));
-  assert.doesNotMatch(script, new RegExp(restoreOrResize, "i"));
+  for (const script of scripts) {
+    assert.doesNotMatch(script, new RegExp(`${showWindowAsync}\\([^\\n]+,\\s*9\\)`));
+    assert.doesNotMatch(script, new RegExp(restoreOrResize, "i"));
+  }
 });

@@ -85,6 +85,7 @@ Shift+Space
 Expected behavior:
 
 - LazyCopy captures the active Windows window.
+- LazyCopy briefly flashes the captured area so you can tell the hotkey fired.
 - LazyCopy copies the capture as a PNG.
 - LazyCopy focuses Codex Desktop.
 - LazyCopy pastes the image into the Codex input.
