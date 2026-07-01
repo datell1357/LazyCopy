@@ -2,27 +2,34 @@
 
 # LazyCopy
 
-Stop pasting walls of context. Let Codex use the window or clipboard you already have.
+Stop pasting walls of context. Send Codex the window or clipboard you already have.
 
-Windows-first AppShot + `dd` for Codex: press one hotkey to send the active window into Codex Desktop, or type one short `dd` message to hand over the latest clipboard text/image.
+Windows-first AppShot + `dd` for Codex: press one hotkey to paste the current window into Codex Desktop, or type one short `dd` message to hand over the latest clipboard text or image.
 
 <p>
-  <a href="#trust--setup"><img src="https://img.shields.io/badge/OS-Windows-0078D4" alt="OS Windows"></a>
+  <a href="#requirements"><img src="https://img.shields.io/badge/OS-Windows-0078D4" alt="OS Windows"></a>
   <a href="#install-from-codex-desktop"><img src="https://img.shields.io/badge/Platform-Codex%20Desktop%26CLI-111111" alt="Platform Codex Desktop and CLI"></a>
-  <a href="#license"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License MIT"></a>
+  <a href="#license-and-attribution"><img src="https://img.shields.io/badge/License-MIT-blue" alt="License MIT"></a>
   <a href="https://github.com/datell1357/LazyCopy/stargazers"><img src="https://img.shields.io/github/stars/datell1357/LazyCopy?label=stars&labelColor=555555&color=F0B72F" alt="GitHub stars"></a>
 </p>
 
 <p>
   <a href="#appshot"><img src="https://img.shields.io/badge/AppShot-Shift%2BSpace-5B8DEF" alt="AppShot Shift+Space"></a>
-  <a href="#dd"><img src="https://img.shields.io/badge/Commands-dd-0A7F64" alt="Commands dd"></a>
+  <a href="#dd"><img src="https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64" alt="dd commands"></a>
 </p>
 
 <p>
   <img src="assets/LazyCopy.png" alt="LazyCopy AppShot preview" width="860">
 </p>
 
-<sub><a href="#install">Install</a> · <a href="#start-here">Start here</a> · <a href="#pick-by-the-moment">Pick by the moment</a> · <a href="#trust--setup">Trust & setup</a> · <a href="#commands">Commands</a></sub>
+<sub>
+  <a href="#install">Install</a> ·
+  <a href="#start-here">Start here</a> ·
+  <a href="#what-gets-installed">What gets installed</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="#license-and-attribution">License</a>
+</sub>
 
 </div>
 
@@ -47,17 +54,9 @@ if (Test-Path "$dir\.git") {
 npm --prefix $dir run install-user
 ```
 
-The installer does five things:
+After install, start a fresh Codex thread so the installed skill and prompts are reloaded.
 
-- Registers this skill as `$dd` and `$ㅇㅇ`.
-- Installs `/dd` and `/ㅇㅇ` as Codex prompts.
-- Installs `/dd` and `/ㅇㅇ` as Claude Code commands.
-- Installs `dd` and `ㅇㅇ` as terminal commands.
-- Installs and starts the Windows `Shift+Space` AppShot watcher.
-
-No separate AppShot skill call is required.
-
-### Install from Codex Desktop
+### Install From Codex Desktop
 
 Open Codex Desktop and paste this message:
 
@@ -67,9 +66,7 @@ Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd ru
 After install, Shift+Space should be the AppShot hotkey and dd should be available as Codex /dd, $dd, /ㅇㅇ, $ㅇㅇ; Claude Code /dd, /ㅇㅇ; and terminal dd, ㅇㅇ.
 ```
 
-Start a fresh Codex thread after install.
-
-### Install from Codex CLI
+### Install From Codex CLI
 
 ```powershell
 codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows. Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, ~/.codex/prompts/ㅇㅇ.md, ~/.claude/commands/dd.md, and ~/.claude/commands/ㅇㅇ.md. After install, Shift+Space should be the AppShot hotkey and dd should be available as Codex /dd, $dd, /ㅇㅇ, $ㅇㅇ; Claude Code /dd, /ㅇㅇ; and terminal dd, ㅇㅇ.'
@@ -77,9 +74,16 @@ codex exec -C $HOME --skip-git-repo-check 'Install LazyCopy from https://github.
 
 ---
 
-## Start here
+## Start Here
 
-> Two handoffs, kept separate: AppShot is the installed hotkey; `dd` is the clipboard command.
+LazyCopy has two separate handoff paths.
+
+Surface | What you do | What LazyCopy does
+--- | --- | ---
+AppShot | Press `Shift+Space` | Captures the active Windows window and pastes the PNG into Codex Desktop.
+`dd` | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...` | Reads the latest clipboard image or text and sends it to the selected AI agent.
+
+These two paths are intentionally separate. AppShot is a hotkey, not a chat command. `dd` is the clipboard command, not the screenshot hotkey.
 
 ### AppShot
 
@@ -98,23 +102,13 @@ Expected behavior:
 - LazyCopy pastes the image into the Codex input.
 - LazyCopy does not submit the message.
 
-The installer writes a hidden Startup launcher for a small watcher. The watcher stays running, but it starts the hotkey listener only while Codex Desktop has a visible window.
+AppShot is only active while Codex Desktop has a visible window. The installer writes a hidden Windows Startup launcher for a small watcher. The watcher keeps running in the background, starts the hotkey listener when Codex is visible, and stops only that listener when Codex disappears.
 
-When Codex is visible, pressing `Shift+Space` performs capture, clipboard update, and paste in one PowerShell helper process. When Codex is closed, LazyCopy stops its listener so the hotkey is not held by AppShot.
+This means:
 
-If `Shift+Space` appears silent, run the listener in the foreground:
-
-```powershell
-dd appshot hotkey run --key shift+space --app Codex
-```
-
-It should print `LazyCopy hotkey listening: shift+space`. Watcher decisions, registration failures, and key presses are also written to:
-
-```text
-%LOCALAPPDATA%\LazyCopy\appshot-hotkey.log
-```
-
-If the hotkey worked earlier but later becomes silent, check this log for `watcher-start`, `codex-visible`, `codex-hidden`, `listener-started`, `listener-exited`, `listener-restart`, `listener-stop-requested`, `listener-failed`, or `command-launch-failed`, then reinstall the hotkey to restart the watcher. An old direct listener from a previous install may keep the key until reinstall or restart.
+- Codex visible: `Shift+Space` should capture and paste into Codex.
+- Codex closed or not visible: the listener should not hold the hotkey for AppShot.
+- Reopening Codex should make the watcher start the listener again within a short polling window.
 
 ### dd
 
@@ -131,10 +125,11 @@ dd 이 클립보드 내용을 보고 이어서 작업해줘
 
 Expected behavior:
 
-- LazyCopy reads the latest clipboard image first, then falls back to clipboard text.
-- LazyCopy sends image context to Codex CLI with the `-i` image attachment path by default.
-- On Codex surfaces, LazyCopy uses Claude Code only when the message explicitly asks for Claude.
-- The user does not need to pass `--agent`, `--prompt`, `--prefer`, or other flags.
+- LazyCopy reads the latest clipboard image first.
+- If no clipboard image is available, LazyCopy falls back to clipboard text.
+- Codex is the default agent.
+- Claude Code is used only when you explicitly choose Claude or use the installed Claude Code slash command.
+- You normally do not need `--agent`, `--prompt`, `--prefer`, or other flags.
 
 In Claude Code CLI, use:
 
@@ -147,27 +142,48 @@ Claude Code commands capture the clipboard into the current Claude session. They
 
 ---
 
-## Pick by the moment
+## What Gets Installed
 
-If you need to... | Use this
---- | ---
-Show Codex the current app window | Press `Shift+Space`
-Ask about the latest clipboard image | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
-Ask about copied text without flooding chat | Type `/dd ...`, `$dd ...`, `dd ...`, or `ㅇㅇ ...`
-Use Claude Code CLI | Type `/dd ...` or `/ㅇㅇ ...` inside Claude Code
-Launch Claude from a normal terminal | Run `dd "..." --agent claude`
-Reinstall or diagnose the hotkey | Use `dd appshot hotkey ...`
+The installer creates or updates these local surfaces:
+
+Installed surface | Location | Purpose
+--- | --- | ---
+Codex skill | `%USERPROFILE%\.codex\skills\dd` | Makes `$dd`, `$ㅇㅇ`, and natural `dd`/`ㅇㅇ` use available to Codex skill discovery.
+Codex prompts | `%USERPROFILE%\.codex\prompts\dd.md`, `%USERPROFILE%\.codex\prompts\ㅇㅇ.md` | Makes `/dd` and `/ㅇㅇ` available in Codex prompt surfaces.
+Claude commands | `%USERPROFILE%\.claude\commands\dd.md`, `%USERPROFILE%\.claude\commands\ㅇㅇ.md` | Makes `/dd` and `/ㅇㅇ` available in Claude Code.
+Terminal commands | `dd`, `ㅇㅇ`, `lazycopy` through `npm link` | Allows direct CLI use from PowerShell.
+AppShot watcher | Windows Startup launcher | Keeps AppShot listener aligned with the Codex Desktop lifecycle.
+
+No separate AppShot skill command is installed. Normal AppShot use is always the installed `Shift+Space` hotkey.
 
 ---
 
-## Trust & setup
+## Requirements
 
-LazyCopy is intended for Windows 10 or Windows 11 with Git, Node.js, Codex CLI, and Codex Desktop installed.
+LazyCopy is built for Windows 10 or Windows 11.
 
-- AppShot is only the installed hotkey; it is not a chat command.
-- `dd` keeps raw clipboard text in the local artifact file so the selected agent can read it, while stdout and manifest previews are redacted.
-- No Windows permission setup is documented here; the helper scripts run locally through PowerShell.
-- The Windows implementation uses PowerShell with `-ExecutionPolicy Bypass` for local helper scripts.
+Required:
+
+- Git
+- Node.js and npm
+- PowerShell
+- Codex CLI
+- Codex Desktop for AppShot
+
+Optional:
+
+- Claude Code CLI, only if you want Claude Code `/dd` or `/ㅇㅇ` support.
+
+Not required:
+
+- Windows admin permission
+- Windows scheduled-task setup
+- Windows service installation
+- Registry Run key setup
+- A separate AppShot chat command
+- Any bundled plugin runtime dependency
+
+The Windows helper scripts run locally through PowerShell. The installer uses PowerShell with `-ExecutionPolicy Bypass` for LazyCopy's local helper scripts.
 
 ---
 
@@ -180,7 +196,7 @@ git -C "$HOME\.codex\skills\dd" pull --ff-only
 npm --prefix "$HOME\.codex\skills\dd" run install-user
 ```
 
-### Direct CLI usage
+### Direct CLI Usage
 
 In a Windows terminal, use the short commands directly:
 
@@ -196,27 +212,25 @@ Set-Clipboard "LazyCopy dd smoke test"
 dd "Use this context" --dry-run --prefer text --json
 ```
 
-Claude Code only when explicitly wanted:
+Launch Claude Code only when explicitly wanted:
 
 ```powershell
 dd "Use this context in Claude Code" --agent claude
 ```
 
-Normal AppShot use is always `Shift+Space`; the commands below are only for reinstalling the watcher or diagnosing the hotkey.
-
-Reinstall the hotkey:
+Reinstall the AppShot watcher:
 
 ```powershell
 dd appshot hotkey install --key shift+space --app Codex
 ```
 
-Run the hotkey listener directly in the foreground:
+Run the hotkey listener directly in the foreground for diagnosis:
 
 ```powershell
 dd appshot hotkey run --key shift+space --app Codex
 ```
 
-### Smoke test
+### Smoke Test
 
 ```powershell
 dd --help
@@ -234,7 +248,7 @@ Set-Clipboard "LazyCopy private clipboard smoke test"
 dd "Use this context" --dry-run --prefer text --json
 ```
 
-Expected `dd` dry-run behavior:
+Expected dry-run behavior:
 
 - `dd.args` contains `<prompt-with-clipboard-text:redacted>`.
 - JSON output and `manifest.json` do not contain raw clipboard text.
@@ -242,17 +256,90 @@ Expected `dd` dry-run behavior:
 
 ---
 
-## dd Attribution
+## Troubleshooting
 
-LazyCopy's `dd` clipboard workflow is adapted from fivetaku's `dd`, distributed through the `fivetaku/gptaku_plugins` collection.
+### Shift+Space Does Nothing
+
+First confirm Codex Desktop is open and has a visible window. The AppShot listener is intentionally active only while Codex is visible.
+
+Then check the log:
+
+```text
+%LOCALAPPDATA%\LazyCopy\appshot-hotkey.log
+```
+
+Useful markers:
+
+Marker | Meaning
+--- | ---
+`watcher-start` | Startup watcher launched.
+`codex-visible` | Watcher detected a visible Codex window.
+`listener-started` | Hotkey listener started.
+`hotkey-fired` | `Shift+Space` was received.
+`command-launched` | Capture/paste command was launched.
+`codex-hidden` | Codex is no longer visible.
+`listener-stop-requested` | Watcher stopped its own listener child.
+`listener-restart` | Watcher is restarting a listener that exited unexpectedly.
+`watcher-failed` | The watcher failed before or while managing the listener.
+`listener-failed` | The hotkey listener failed.
+`command-launch-failed` | The capture/paste helper could not be started.
+
+If the log looks stale or an old listener is still holding the hotkey, reinstall:
+
+```powershell
+dd appshot hotkey install --key shift+space --app Codex
+```
+
+### The Terminal `dd` Command Is Not LazyCopy
+
+Codex and Claude slash commands are different from your shell command lookup. If `dd --help` does not show LazyCopy, run the installer again, then open a new PowerShell window:
+
+```powershell
+npm --prefix "$HOME\.codex\skills\dd" run install-user
+dd --help
+```
+
+### Codex Gets Text But Not an Image
+
+`dd` checks for a clipboard image first and falls back to clipboard text. If you expected image behavior, copy an actual image to the Windows clipboard and run:
+
+```powershell
+dd "이미지를 읽고 설명해줘" --dry-run --json
+```
+
+The dry-run JSON should report an image artifact and a `capture.png` path.
+
+More detail:
+
+- [Privacy and artifacts](docs/PRIVACY_AND_ARTIFACTS.md)
+- [Windows lifecycle QA checklist](docs/WINDOWS_LIFECYCLE_QA.md)
+
+---
+
+## Boundaries
+
+LazyCopy explicitly does not claim these things:
+
+- It does not install a Windows service.
+- It does not use Windows scheduled-task setup.
+- It does not require admin elevation.
+- It does not submit the Codex message after AppShot paste.
+- It does not keep the AppShot listener active while Codex Desktop is closed.
+- It does not make Codex Desktop required for `dd`.
+- It does not send clipboard artifacts to a remote server by itself.
+- It does not replace Codex or Claude Code agent behavior; it packages local clipboard/window context for them.
+
+---
+
+## License And Attribution
+
+LazyCopy is distributed under the MIT License. See [LICENSE](LICENSE).
+
+The `dd` clipboard workflow is adapted from fivetaku's `dd`, distributed through the `fivetaku/gptaku_plugins` collection.
 
 - Source collection: https://github.com/fivetaku/gptaku_plugins
 - Upstream `dd` source: https://github.com/fivetaku/dd
 - Upstream license: MIT License
 - Upstream copyright: Copyright (c) 2026 fivetaku
 
-LazyCopy keeps this attribution because the upstream `dd` workflow and command surface inspired the local clipboard text/image handoff used here. The upstream MIT notice is preserved in `THIRD_PARTY_NOTICES.md`.
-
-## License
-
-MIT
+The upstream MIT notice is preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). LazyCopy is an independent project and is not endorsed by, sponsored by, or affiliated with fivetaku unless explicitly stated by that upstream project.
