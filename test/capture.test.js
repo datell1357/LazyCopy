@@ -1056,7 +1056,13 @@ test("Windows watcher helper manages the visible Codex listener lifecycle", asyn
   assert.match(script, /ConvertTo-LazyCopyPowerShellArgument/);
   assert.match(script, /Start-LazyCopyHiddenProcess/);
   assert.match(script, /-ArgumentList \$argumentList/);
-  assert.match(script, /-replace "'", "''"/);
+  assert.doesNotMatch(script, /return\s+"'\s*"\s*\+/);
+  assert.doesNotMatch(script, /-replace "'", "''"/);
+  assert.match(script, /\$Value\.Length -eq 0/);
+  assert.match(script, /return '""'/);
+  assert.match(script, /\$Value -notmatch '\[\\s"\]'/);
+  assert.match(script, /return \$Value/);
+  assert.match(script, /-replace '"', '\\"'/);
   assert.match(script, /\[regex\]::Escape\(\$AppName\)/);
   assert.match(script, /MainWindowHandle -ne 0/);
   assert.match(script, /ProcessName -match \$escaped/);

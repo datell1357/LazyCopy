@@ -61,7 +61,13 @@ if ($SelfUpdateCommandBase64) {
 }
 
 function ConvertTo-LazyCopyPowerShellArgument([string]$Value) {
-  return "'" + ($Value -replace "'", "''") + "'"
+  if ($Value.Length -eq 0) {
+    return '""'
+  }
+  if ($Value -notmatch '[\s"]') {
+    return $Value
+  }
+  return '"' + ($Value -replace '"', '\"') + '"'
 }
 
 function Start-LazyCopyHiddenProcess([string[]]$Command) {
