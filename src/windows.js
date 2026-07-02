@@ -185,8 +185,10 @@ function hiddenHotkeyStartupCommand(command, options = {}) {
   const powershell = options.powershell ?? command[0] ?? powershellBin();
   const startCommand = [
     "Start-Process -WindowStyle Hidden",
+    "-PassThru",
     `-FilePath ${quotePowerShellString(command[0] ?? powershell)}`,
     `-ArgumentList @(${command.slice(1).map((arg) => quotePowerShellString(quotePowerShellProcessArgument(arg))).join(", ")})`,
+    "| Select-Object -ExpandProperty Id",
   ].join(" ");
   const encodedCommand = Buffer.from(startCommand, "utf16le").toString("base64");
   return `${quoteCmdArg(powershell)} -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encodedCommand}`;
@@ -195,22 +197,28 @@ function hiddenHotkeyStartupCommand(command, options = {}) {
 function runStartupShortcut(startupPath, options = {}) {
   return new Promise((resolve, reject) => {
     let pid = null;
+    let stdout = "";
     const child = spawn(
       "cmd.exe",
       ["/d", "/s", "/c", `call "${startupPath}"`],
       {
-        stdio: "ignore",
+        stdio: ["ignore", "pipe", "ignore"],
         windowsVerbatimArguments: true,
         windowsHide: options.platform === "win32",
       },
     );
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
     child.once("spawn", () => {
       pid = child.pid;
     });
     child.once("error", reject);
     child.once("close", (code) => {
       if (code === 0) {
-        resolve(pid);
+        const watcherPid = Number.parseInt(stdout.trim(), 10);
+        resolve(Number.isInteger(watcherPid) && watcherPid > 0 ? watcherPid : pid);
         return;
       }
       reject(new LazyCopyError("STARTUP_LAUNCH_FAILED", `Startup launcher exited with code ${code}.`));

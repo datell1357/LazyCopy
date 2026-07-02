@@ -952,7 +952,8 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
   assert.equal(payload.command.includes("run"), false);
   assert.match(payload.startupCommand, /^"powershell\.exe" -NoProfile -ExecutionPolicy Bypass -EncodedCommand /);
   const startupCommand = decodedStartupCommand(payload.startupCommand);
-  assert.match(startupCommand, /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\(/);
+  assert.match(startupCommand, /^Start-Process -WindowStyle Hidden -PassThru -FilePath 'powershell\.exe' -ArgumentList @\(/);
+  assert.match(startupCommand, /\| Select-Object -ExpandProperty Id$/);
   assert.match(startupCommand, /'\"[^']*windows-appshot-watch\.ps1\"'/);
   assert.match(startupCommand, /'C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey\.log'/);
   assert.doesNotMatch(payload.startupCommand, /start-windows-appshot-watch\.js/);
@@ -1033,7 +1034,7 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(installed[0].command.includes("run"), false);
   assert.match(
     decodedStartupCommand(installed[0].options.startupCommand),
-    /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\(/,
+    /^Start-Process -WindowStyle Hidden -PassThru -FilePath 'powershell\.exe' -ArgumentList @\(/,
   );
   assert.doesNotMatch(installed[0].options.startupCommand, /start-windows-appshot-watch\.js/);
 
@@ -1058,10 +1059,12 @@ test("Windows hotkey install writes a Startup launcher and runs it immediately",
       "-AppName",
       "Codex",
     ])),
-    /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', '"C:\\Lazy Copy\\scripts\\windows-appshot-watch\.ps1"', '-AppName', 'Codex'\)$/,
+    /^Start-Process -WindowStyle Hidden -PassThru -FilePath 'powershell\.exe' -ArgumentList @\('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', '"C:\\Lazy Copy\\scripts\\windows-appshot-watch\.ps1"', '-AppName', 'Codex'\) \| Select-Object -ExpandProperty Id$/,
   );
   assert.match(source, /child\.once\("spawn"/);
   assert.match(source, /child\.once\("close"/);
+  assert.match(source, /Select-Object -ExpandProperty Id/);
+  assert.match(source, /Number\.parseInt\(stdout\.trim\(\), 10\)/);
   assert.match(source, /installer-spawned pid=\$\{pid\}/);
   assert.match(source, /"cmd\.exe"/);
   assert.match(source, /`call "\$\{startupPath\}"/);

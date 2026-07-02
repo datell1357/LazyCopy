@@ -10,7 +10,7 @@
   },
   "scripts": {
     "install-user": "node scripts/install-user.js",
-    "test": "node --test test/capture.test.js"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "license": "MIT"
 }
