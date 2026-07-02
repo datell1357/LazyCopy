@@ -367,6 +367,12 @@ test("package exposes short terminal commands without lazycopy prefix", async ()
   assert.equal(packageJson.bin["ㅇㅇ"], "./bin/dd.js");
 });
 
+test("git attributes keep npm-linked bin scripts LF-normalized", async () => {
+  const attributes = await fs.readFile(path.join(repoRoot, ".gitattributes"), "utf8");
+
+  assert.match(attributes, /^bin\/\*\.js text eol=lf$/m);
+});
+
 test("installer exposes Claude Code slash commands for dd", async () => {
   const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
   assert.match(installer, /\.claude/);
