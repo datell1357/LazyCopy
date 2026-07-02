@@ -64,6 +64,7 @@ function run(command, args, options = {}) {
   const invocation = resolveRunInvocation(command, args, platform);
   const result = spawnSync(invocation.command, invocation.args, {
     cwd: options.cwd ?? repoRoot,
+    env: options.env ?? process.env,
     stdio: "inherit",
     shell: false,
     windowsHide: platform === "win32",
@@ -80,8 +81,22 @@ function run(command, args, options = {}) {
   return { ok: true, status: 0 };
 }
 
+function npmLinkEnv(baseEnv = process.env) {
+  const env = { ...baseEnv };
+  const blockedKeys = new Set(["npm_config_prefix", "npm_config_local_prefix", "npm_config_global", "npm_config_location", "prefix"]);
+  for (const key of Object.keys(env)) {
+    if (blockedKeys.has(key.toLowerCase())) {
+      delete env[key];
+    }
+  }
+  return env;
+}
+
 function runNpmLink(options = {}) {
-  return run("npm", ["link", "--force", "--loglevel=error"], options);
+  return run("npm", ["link", "--force", "--loglevel=error"], {
+    ...options,
+    env: npmLinkEnv(options.env),
+  });
 }
 
 function sameExistingPath(left, right) {

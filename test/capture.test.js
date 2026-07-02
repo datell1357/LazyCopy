@@ -411,7 +411,11 @@ test("Windows installer keeps watcher setup ahead of optional npm link", async (
   assert.ok(hotkeyIndex < npmLinkIndex);
   assert.match(installer, /const runtimeRoot = ensureDdSkill\(\);/);
   assert.match(installer, /path\.join\(runtimeRoot, "bin", "lazycopy\.js"\)/);
+  assert.match(installer, /function npmLinkEnv\(baseEnv = process\.env\)/);
+  assert.match(installer, /"npm_config_prefix"/);
+  assert.match(installer, /blockedKeys\.has\(key\.toLowerCase\(\)\)/);
   assert.match(installer, /run\("npm", \["link", "--force", "--loglevel=error"\]/);
+  assert.match(installer, /env: npmLinkEnv\(options\.env\)/);
   assert.match(installer, /runNpmLink\(\{ optional: true, cwd: runtimeRoot \}\)/);
   assert.match(installer, /"--json"/);
 });
