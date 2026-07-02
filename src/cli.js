@@ -754,10 +754,28 @@ async function runHotkey(options, system, io, action) {
   throw new LazyCopyError("UNKNOWN_HOTKEY_ACTION", `Unknown hotkey action ${action}.`);
 }
 
+function quoteCmdArg(value) {
+  const text = String(value);
+  if (text.length === 0) {
+    return "\"\"";
+  }
+  return `"${text.replace(/([()%!^"<>&|])/g, "^$1")}"`;
+}
+
+function commandScriptInvocation(command, args) {
+  return [
+    "cmd.exe",
+    ["/d", "/s", "/c", ["call", quoteCmdArg(command), ...args.map(quoteCmdArg)].join(" ")],
+  ];
+}
+
 function spawnInherit(command, args, io) {
   return new Promise((resolve) => {
-    const child = spawn(command, args, {
+    const commandScript = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command);
+    const [spawnCommand, spawnArgs] = commandScript ? commandScriptInvocation(command, args) : [command, args];
+    const child = spawn(spawnCommand, spawnArgs, {
       stdio: io.inheritStdio === false ? "pipe" : "inherit",
+      windowsVerbatimArguments: commandScript,
     });
     child.on("close", (code) => resolve(code ?? 1));
     child.on("error", () => resolve(1));

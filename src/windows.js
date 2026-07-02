@@ -146,15 +146,84 @@ function quoteCmdArg(arg) {
   return `"${String(arg).replace(/"/g, '""')}"`;
 }
 
-function hiddenHotkeyStartupCommand(command, options = {}) {
-  const nodePath = options.nodePath ?? process.execPath;
-  const launcherPath = options.launcherPath ?? scriptPath("start-windows-appshot-watch.js");
-  const commandBase64 = Buffer.from(JSON.stringify(command), "utf8").toString("base64");
-  const args = [quoteCmdArg(nodePath), quoteCmdArg(launcherPath), commandBase64];
-  if (options.logPath) {
-    args.push(quoteCmdArg(options.logPath));
+function quotePowerShellString(arg) {
+  return `'${String(arg).replace(/'/g, "''")}'`;
+}
+
+function quotePowerShellProcessArgument(arg) {
+  const value = String(arg);
+  if (value.length === 0) {
+    return '""';
   }
-  return args.join(" ");
+  if (!/[\s"]/.test(value)) {
+    return value;
+  }
+
+  let result = '"';
+  let backslashes = 0;
+  for (const char of value) {
+    if (char === "\\") {
+      backslashes += 1;
+      continue;
+    }
+    if (char === '"') {
+      result += "\\".repeat(backslashes * 2 + 1);
+      result += '"';
+      backslashes = 0;
+      continue;
+    }
+    result += "\\".repeat(backslashes);
+    result += char;
+    backslashes = 0;
+  }
+  result += "\\".repeat(backslashes * 2);
+  result += '"';
+  return result;
+}
+
+function hiddenHotkeyStartupCommand(command, options = {}) {
+  const powershell = options.powershell ?? command[0] ?? powershellBin();
+  const startCommand = [
+    "Start-Process -WindowStyle Hidden",
+    "-PassThru",
+    `-FilePath ${quotePowerShellString(command[0] ?? powershell)}`,
+    `-ArgumentList @(${command.slice(1).map((arg) => quotePowerShellString(quotePowerShellProcessArgument(arg))).join(", ")})`,
+    "| Select-Object -ExpandProperty Id",
+  ].join(" ");
+  const encodedCommand = Buffer.from(startCommand, "utf16le").toString("base64");
+  return `${quoteCmdArg(powershell)} -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encodedCommand}`;
+}
+
+function runStartupShortcut(startupPath, options = {}) {
+  return new Promise((resolve, reject) => {
+    let pid = null;
+    let stdout = "";
+    const child = spawn(
+      "cmd.exe",
+      ["/d", "/s", "/c", `call "${startupPath}"`],
+      {
+        stdio: ["ignore", "pipe", "ignore"],
+        windowsVerbatimArguments: true,
+        windowsHide: options.platform === "win32",
+      },
+    );
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.once("spawn", () => {
+      pid = child.pid;
+    });
+    child.once("error", reject);
+    child.once("close", (code) => {
+      if (code === 0) {
+        const watcherPid = Number.parseInt(stdout.trim(), 10);
+        resolve(Number.isInteger(watcherPid) && watcherPid > 0 ? watcherPid : pid);
+        return;
+      }
+      reject(new LazyCopyError("STARTUP_LAUNCH_FAILED", `Startup launcher exited with code ${code}.`));
+    });
+  });
 }
 
 async function installHotkey(command, options = {}) {
@@ -172,19 +241,7 @@ async function installHotkey(command, options = {}) {
     return { startupPath, started: false, logPath };
   }
 
-  const pid = await new Promise((resolve, reject) => {
-    const child = spawn(command[0], command.slice(1), {
-      detached: true,
-      stdio: "ignore",
-      shell: false,
-      windowsHide: true,
-    });
-    child.once("spawn", () => {
-      child.unref();
-      resolve(child.pid);
-    });
-    child.once("error", reject);
-  });
+  const pid = await runStartupShortcut(startupPath, options);
   await appendHotkeyLog(logPath, `installer-spawned pid=${pid}`);
   return { startupPath, started: true, pid, logPath };
 }
