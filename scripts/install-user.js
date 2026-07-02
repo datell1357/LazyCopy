@@ -81,7 +81,7 @@ function run(command, args, options = {}) {
 }
 
 function runNpmLink(options = {}) {
-  return run("npm", ["link"], options);
+  return run("npm", ["link", "--force", "--loglevel=error"], options);
 }
 
 function sameExistingPath(left, right) {

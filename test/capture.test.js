@@ -411,6 +411,7 @@ test("Windows installer keeps watcher setup ahead of optional npm link", async (
   assert.ok(hotkeyIndex < npmLinkIndex);
   assert.match(installer, /const runtimeRoot = ensureDdSkill\(\);/);
   assert.match(installer, /path\.join\(runtimeRoot, "bin", "lazycopy\.js"\)/);
+  assert.match(installer, /run\("npm", \["link", "--force", "--loglevel=error"\]/);
   assert.match(installer, /runNpmLink\(\{ optional: true, cwd: runtimeRoot \}\)/);
   assert.match(installer, /"--json"/);
 });
@@ -595,7 +596,7 @@ test("Windows installer does not let npm link failure block user-bin wrappers", 
   });
 
   assert.equal(install.status, 0, install.stderr);
-  assert.match(install.stderr, /Warning: npm link failed/);
+  assert.match(install.stderr, /Warning: npm link .*failed/);
   assert.match(install.stdout, /Windows user-bin wrappers/);
   assert.match(install.stdout, /watcher-managed Shift\+Space AppShot/);
   await fs.access(path.join(home, "bin", "dd.cmd"));
