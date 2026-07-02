@@ -9,7 +9,7 @@ const { test } = require("node:test");
 const { createCaptureArtifact, createTextArtifact } = require("../src/capture");
 const { LazyCopyError } = require("../src/errors");
 const { DEFAULT_HOTKEY, launchAgentPlist, runCli } = require("../src/cli");
-const { startupShortcutPath, uninstallHotkey } = require("../src/windows");
+const { hiddenHotkeyStartupCommand, startupShortcutPath, uninstallHotkey } = require("../src/windows");
 
 const repoRoot = path.resolve(__dirname, "..");
 const oneByOnePng = Buffer.from(
@@ -37,6 +37,33 @@ function captureWrites() {
     text: () => writes.join(""),
     json: () => JSON.parse(writes.join("")),
   };
+}
+
+async function createDirectoryLink(target, link) {
+  await fs.symlink(target, link, process.platform === "win32" ? "junction" : "dir");
+}
+
+async function writeNodeCommand(t, dir, commandName, source) {
+  const scriptPath = path.join(dir, `${commandName}.js`);
+  await fs.writeFile(scriptPath, source);
+  await fs.chmod(scriptPath, 0o755);
+
+  if (process.platform === "win32") {
+    const commandPath = path.join(dir, `${commandName}.cmd`);
+    await fs.writeFile(commandPath, `@echo off\r\n"${process.execPath}" "%~dp0${commandName}.js" %*\r\n`);
+    return commandPath;
+  }
+
+  const commandPath = path.join(dir, commandName);
+  await fs.writeFile(commandPath, `#!/usr/bin/env sh\nexec "${process.execPath}" "$(dirname "$0")/${commandName}.js" "$@"\n`);
+  await fs.chmod(commandPath, 0o755);
+  return commandPath;
+}
+
+function decodedStartupCommand(commandLine) {
+  const match = commandLine.match(/(?:^|\s)-EncodedCommand\s+(\S+)/);
+  assert.ok(match, "startup command must use PowerShell -EncodedCommand");
+  return Buffer.from(match[1], "base64").toString("utf16le");
 }
 
 function skillFrontmatter(source) {
@@ -440,7 +467,9 @@ test("installer repairs a stale root dd skill symlink instead of preserving a vo
   const staleTarget = path.join(home, "deleted-qa-copy");
   const ddSkillDir = path.join(home, ".codex", "skills", "dd");
   await fs.mkdir(path.dirname(ddSkillDir), { recursive: true });
-  await fs.symlink(staleTarget, ddSkillDir, "dir");
+  await fs.mkdir(staleTarget, { recursive: true });
+  await createDirectoryLink(staleTarget, ddSkillDir);
+  await fs.rm(staleTarget, { force: true, recursive: true });
 
   const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
     cwd: repoRoot,
@@ -491,7 +520,7 @@ test("installer replaces old Korean skill symlink without overwriting root dd sk
   const aliasParent = path.join(home, ".codex", "skills");
   const aliasDir = path.join(aliasParent, "ㅇㅇ");
   await fs.mkdir(aliasParent, { recursive: true });
-  await fs.symlink(repoRoot, aliasDir, "dir");
+  await createDirectoryLink(repoRoot, aliasDir);
   const rootSkillBefore = await fs.readFile(path.join(repoRoot, "SKILL.md"), "utf8");
 
   const install = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "install-user.js")], {
@@ -921,10 +950,12 @@ test("Windows appshot hotkey install dry-run emits a startup watcher command", a
   ]);
   const fastCommand = JSON.parse(Buffer.from(listenerCommand[12], "base64").toString("utf8"));
   assert.equal(payload.command.includes("run"), false);
-  assert.match(payload.startupCommand, /node/);
-  assert.match(payload.startupCommand, /start-windows-appshot-watch\.js/);
-  assert.match(payload.startupCommand, /appshot-hotkey\.log/);
-  assert.doesNotMatch(payload.startupCommand, /Start-Process/);
+  assert.match(payload.startupCommand, /^"powershell\.exe" -NoProfile -ExecutionPolicy Bypass -EncodedCommand /);
+  const startupCommand = decodedStartupCommand(payload.startupCommand);
+  assert.match(startupCommand, /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\(/);
+  assert.match(startupCommand, /'\"[^']*windows-appshot-watch\.ps1\"'/);
+  assert.match(startupCommand, /'C:\\Users\\tester\\AppData\\Local\\LazyCopy\\appshot-hotkey\.log'/);
+  assert.doesNotMatch(payload.startupCommand, /start-windows-appshot-watch\.js/);
   assert.doesNotMatch(payload.startupCommand, /\/min/);
   const fastScriptIndex = fastCommand.findIndex((value) => /windows-appshot-fast\.ps1$/.test(value));
   assert.ok(fastScriptIndex !== -1);
@@ -1000,8 +1031,11 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.equal(fastCommand.some((value) => /windows-appshot-fast\.ps1$/.test(value)), true);
   assert.equal(fastCommand.filter((value) => value === "-LogPath").length, 1);
   assert.equal(installed[0].command.includes("run"), false);
-  assert.match(installed[0].options.startupCommand, /start-windows-appshot-watch\.js/);
-  assert.doesNotMatch(installed[0].options.startupCommand, /Start-Process/);
+  assert.match(
+    decodedStartupCommand(installed[0].options.startupCommand),
+    /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\(/,
+  );
+  assert.doesNotMatch(installed[0].options.startupCommand, /start-windows-appshot-watch\.js/);
 
   const payload = stdout.json();
   assert.equal(payload.started, true);
@@ -1009,16 +1043,32 @@ test("Windows appshot hotkey install starts the watcher process", async (t) => {
   assert.deepEqual(payload.command, installed[0].command);
 });
 
-test("Windows hotkey install writes a Startup launcher and starts the watcher directly", async () => {
+test("Windows hotkey install writes a Startup launcher and runs it immediately", async () => {
   const source = await fs.readFile(path.join(repoRoot, "src", "windows.js"), "utf8");
 
-  assert.match(source, /start-windows-appshot-watch\.js/);
-  assert.match(source, /spawn\(command\[0\], command\.slice\(1\)/);
+  assert.match(
+    decodedStartupCommand(hiddenHotkeyStartupCommand([
+      "powershell.exe",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-STA",
+      "-File",
+      "C:\\Lazy Copy\\scripts\\windows-appshot-watch.ps1",
+      "-AppName",
+      "Codex",
+    ])),
+    /^Start-Process -WindowStyle Hidden -FilePath 'powershell\.exe' -ArgumentList @\('-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-File', '"C:\\Lazy Copy\\scripts\\windows-appshot-watch\.ps1"', '-AppName', 'Codex'\)$/,
+  );
   assert.match(source, /child\.once\("spawn"/);
+  assert.match(source, /child\.once\("close"/);
   assert.match(source, /installer-spawned pid=\$\{pid\}/);
-  assert.match(source, /shell:\s*false/);
-  assert.doesNotMatch(source, /Start-Process -WindowStyle Hidden/);
-  assert.doesNotMatch(source, /\["\/d", "\/s", "\/c", `call "\$\{startupPath\.replace\(/);
+  assert.match(source, /"cmd\.exe"/);
+  assert.match(source, /`call "\$\{startupPath\}"/);
+  assert.match(source, /windowsVerbatimArguments:\s*true/);
+  assert.match(source, /Start-Process -WindowStyle Hidden/);
+  assert.doesNotMatch(source, /start-windows-appshot-watch\.js/);
+  assert.doesNotMatch(source, /detached:\s*true/);
 });
 
 test("Windows appshot hotkey install can refresh Startup without starting a second watcher", async (t) => {
@@ -1075,16 +1125,16 @@ test("Windows appshot hotkey dry-run omits log-path args when no log path is ava
 
 test("Windows appshot hotkey run keeps the direct PowerShell listener path", async (t) => {
   const dir = await makeTempDir(t);
-  const powershellShim = path.join(dir, "powershell-shim.js");
   const argvPath = path.join(dir, "argv.json");
-  await fs.writeFile(
-    powershellShim,
+  const powershellShim = await writeNodeCommand(
+    t,
+    dir,
+    "powershell-shim",
     `#!/usr/bin/env node
 const fs = require("node:fs");
 fs.writeFileSync(${JSON.stringify(argvPath)}, JSON.stringify(process.argv.slice(2)));
 `,
   );
-  await fs.chmod(powershellShim, 0o755);
 
   const exitCode = await runCli(
     ["appshot", "hotkey", "run", "--key", "shift+space", "--app", "Codex"],
@@ -1176,9 +1226,10 @@ test("self-update fast-forwards and refreshes installed surfaces", async (t) => 
   await fs.mkdir(path.join(fakeRepo, "scripts"), { recursive: true });
   await fs.mkdir(fakeBin, { recursive: true });
 
-  const gitShim = path.join(fakeBin, "git");
-  await fs.writeFile(
-    gitShim,
+  await writeNodeCommand(
+    t,
+    fakeBin,
+    "git",
     `#!/usr/bin/env node
 const fs = require("node:fs");
 const args = process.argv.slice(2);
@@ -1203,7 +1254,6 @@ if (args.join(" ") === "rev-parse --is-inside-work-tree") {
 }
 `,
   );
-  await fs.chmod(gitShim, 0o755);
 
   const installUserShim = path.join(fakeRepo, "scripts", "install-user.js");
   await fs.writeFile(

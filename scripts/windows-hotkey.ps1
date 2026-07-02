@@ -18,7 +18,7 @@ if (-not $LogPath) {
 function Write-LazyCopyLog([string]$Message) {
   $parent = Split-Path -Parent $LogPath
   if ($parent) {
-    New-Item -ItemType Directory -Force $parent | Out-Null
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
   }
   $timestamp = (Get-Date).ToString("o")
   Add-Content -Path $LogPath -Value "$timestamp $Message" -Encoding UTF8

@@ -35,19 +35,62 @@ function writeLog(logPath, message) {
   fs.appendFileSync(logPath, `${new Date().toISOString()} ${message}\n`, "utf8");
 }
 
-function resolveCommand(command) {
-  if (process.platform === "win32" && command === "npm") {
-    return "npm.cmd";
+function findPathCommand(command, env) {
+  const pathValue = env.PATH || env.Path || "";
+  for (const entry of pathValue.split(path.delimiter)) {
+    if (!entry) continue;
+    const candidate = path.join(entry, command);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveCommand(command, env) {
+  if (process.platform === "win32") {
+    if (path.extname(command)) {
+      return command;
+    }
+    const commandShim = findPathCommand(`${command}.cmd`, env);
+    if (commandShim) {
+      return commandShim;
+    }
+    if (command === "npm") {
+      return "npm.cmd";
+    }
   }
   return command;
 }
 
+function quoteCmdArg(value) {
+  const text = String(value);
+  if (text.length === 0) {
+    return "\"\"";
+  }
+  return `"${text.replace(/([()%!^"<>&|])/g, "^$1")}"`;
+}
+
+function commandScriptInvocation(command, args) {
+  return [
+    "cmd.exe",
+    ["/d", "/s", "/c", ["call", quoteCmdArg(command), ...args.map(quoteCmdArg)].join(" ")],
+  ];
+}
+
 function run(command, args, options = {}) {
-  const result = spawnSync(resolveCommand(command), args, {
+  const env = options.env ?? process.env;
+  const resolvedCommand = resolveCommand(command, env);
+  const commandScript = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(resolvedCommand);
+  const [spawnCommand, spawnArgs] = commandScript
+    ? commandScriptInvocation(resolvedCommand, args)
+    : [resolvedCommand, args];
+  const result = spawnSync(spawnCommand, spawnArgs, {
     cwd: options.cwd,
     encoding: "utf8",
-    env: options.env ?? process.env,
+    env,
     shell: false,
+    windowsVerbatimArguments: commandScript,
     windowsHide: true,
   });
   return {
