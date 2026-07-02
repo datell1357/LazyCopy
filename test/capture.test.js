@@ -373,6 +373,13 @@ test("git attributes keep npm-linked bin scripts LF-normalized", async () => {
   assert.match(attributes, /^bin\/\*\.js text eol=lf$/m);
 });
 
+test("README command badge points to the commands section", async () => {
+  const readme = await fs.readFile(path.join(repoRoot, "README.md"), "utf8");
+
+  assert.match(readme, /<a href="#commands"><img src="https:\/\/img\.shields\.io\/badge\/command-/);
+  assert.doesNotMatch(readme, /<a href="#dd"><img src="https:\/\/img\.shields\.io\/badge\/dd-/);
+});
+
 test("installer exposes Claude Code slash commands for dd", async () => {
   const installer = await fs.readFile(path.join(repoRoot, "scripts", "install-user.js"), "utf8");
   assert.match(installer, /\.claude/);
