@@ -15,7 +15,7 @@ Windows-first AppShot + `dd` for Codex: press one hotkey to paste the current wi
 
 <p>
   <a href="#appshot"><img src="https://img.shields.io/badge/AppShot-Shift%2BSpace-5B8DEF" alt="AppShot Shift+Space"></a>
-  <a href="#command"><img src="https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64" alt="dd commands"></a>
+  <a href="#dd commands"><img src="https://img.shields.io/badge/dd-%2Fdd%20%7C%20%24dd%20%7C%20%E3%85%87%E3%85%87-0A7F64" alt="dd commands"></a>
 </p>
 
 <p>
@@ -23,19 +23,19 @@ Windows-first AppShot + `dd` for Codex: press one hotkey to paste the current wi
 </p>
 
 <sub>
-  <a href="#install">Install</a> ·
+  <a href="#install">설치하기</a> ·
   <a href="#start-here">Start here</a> ·
   <a href="#what-gets-installed">What gets installed</a> ·
-  <a href="#commands">Commands</a> ·
+  <a href="#commands">명령어</a> ·
   <a href="#troubleshooting">Troubleshooting</a> ·
-  <a href="#license-and-attribution">License</a>
+  <a href="#license-and-attribution">라이선스</a>
 </sub>
 
 </div>
 
 ---
 
-## Install
+## 설치하기
 
 Run this in PowerShell:
 
@@ -62,7 +62,7 @@ Open Codex Desktop and paste this message:
 
 ```text
 Install LazyCopy from https://github.com/datell1357/LazyCopy.git for Windows.
-Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, ~/.codex/prompts/ㅇㅇ.md, ~/.claude/commands/dd.md, and ~/.claude/commands/ㅇㅇ.md.
+Clone or update it at ~/.codex/skills/dd, run npm --prefix ~/.codex/skills/dd run install-user, then verify dd --help, ~/.codex/prompts/dd.md, ~/.codex/prompts/ㅇㅇ.md, ~/.claude/commands/dd.md, 그리고 ~/.claude/commands/ㅇㅇ.md.
 After install, Shift+Space should be the AppShot hotkey and dd should be available as Codex /dd, $dd, /ㅇㅇ, $ㅇㅇ; Claude Code /dd, /ㅇㅇ; and terminal dd, ㅇㅇ.
 ```
 
